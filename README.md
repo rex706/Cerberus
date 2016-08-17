@@ -1,4 +1,4 @@
-# Cerberus
+# Cerberus				![alt tag](http://i.imgur.com/Z3cuEJA.png)
 Discord chat bot with some useful user commands.
 
 -Requires DiscordNet Nuget package-
