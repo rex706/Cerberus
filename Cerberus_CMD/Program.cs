@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Timers;
-using Discord; //discord.net library
+using Discord;
 using Discord.Audio;
 using System.Net.Sockets;
 using System.IO;
@@ -42,6 +42,8 @@ namespace Cerberus_CMD
         private static bool VoteKickInProgress = false;
         private static bool VoteJailInProgress = false;
 
+        private static string query;
+
         static void Main(string[] args)
         {
             Console.WriteLine("Creating Client");
@@ -64,6 +66,7 @@ namespace Cerberus_CMD
                     "!cat -------- random cat picture.\n" +
                     "!dog -------- random dog picture.\n" +
                     "!tits -------- show me the money!\n" +
+                    "!gimme [search phrase] - get random image from search phrase.\n" + 
                     "!region ----- current Discord region.\n" +
                     "!minecraft - minecraft server status.\n" +
                     "!starbound - starbound server status.\n" +
@@ -108,6 +111,18 @@ namespace Cerberus_CMD
                         webclient.DownloadFile("http://random.dog/" + dog, "dog.png");
                         e.Channel.SendMessage("woof!");
                         e.Channel.SendFile("dog.png");
+                    }
+                }
+                if (e.Message.Text == "!catdog")
+                {
+                    Thread t = new Thread(new ParameterizedThreadStart(randomcat));
+                    t.Start(e.Channel);
+                    string s;
+                    using (WebClient webclient = new WebClient())
+                    {
+                        webclient.DownloadFile("http://media.tumblr.com/3d6cbf48019ba4c8f023b09b7c7f4102/tumblr_inline_mruemiB93V1qz4rgp.gif", "catdog.png");
+                        e.Channel.SendMessage("Which one poops?");
+                        e.Channel.SendFile("catdog.png");
                     }
                 }
                 if (e.Message.Text == "!tits")
@@ -373,6 +388,44 @@ namespace Cerberus_CMD
                     }
                 }
 
+                if (e.Message.Text.Contains("!gimme") && !e.User.IsBot)
+                {
+                    string[] phrase = e.Message.Text.Split(' ');
+                    query = null;
+
+                    if (phrase.Length > 2)
+                    {
+                        for (int i = 1; i < phrase.Length; i++)
+                            query += phrase[i] + " ";
+                    }
+                    else
+                    {
+                        query = phrase[1];
+                    }
+
+                    string html = GetHtmlCode();
+                    List<string> urls = GetUrls(html);
+                    var rnd = new Random();
+
+                    int random = rnd.Next(0, urls.Count - 1);
+                    string luckyUrl = urls[random];
+
+                    WebClient webclient = new WebClient();
+                    
+                    try
+                    {
+                        webclient.DownloadFile(luckyUrl, "random.png");
+
+                        e.Channel.SendMessage("I found " + query + "!");
+                        e.Channel.SendFile("random.png");
+                    }
+                    catch
+                    {
+                        e.Channel.SendMessage("Something went wrong :( Please try again!");
+                    }
+                    
+                }
+
                 // Echo current discord region
                 if (e.Message.Text == "!region")
                 {
@@ -416,7 +469,7 @@ namespace Cerberus_CMD
             client.ExecuteAndWait(async () =>
             {
                 // bot token
-                await client.Connect("BOT_TOKEN");
+                await client.Connect("BOT_TOKEN", TokenType.Bot);
                 client.SetGame(null);
 
                 // Done!
@@ -573,6 +626,65 @@ namespace Cerberus_CMD
         private static void randomcat(object channel)
         {
 
+        }
+
+        private static string GetHtmlCode()
+        {
+            string url = "https://www.google.com/search?q=" + query + "&tbm=isch";
+            string data = "";
+
+            var request = (HttpWebRequest)WebRequest.Create(url);
+            request.Accept = "text/html, application/xhtml+xml, */*";
+            request.UserAgent = "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko";
+
+            var response = (HttpWebResponse)request.GetResponse();
+
+            using (Stream dataStream = response.GetResponseStream())
+            {
+                if (dataStream == null)
+                    return "";
+                using (var sr = new StreamReader(dataStream))
+                {
+                    data = sr.ReadToEnd();
+                }
+            }
+            return data;
+        }
+        private static List<string> GetUrls(string html)
+        {
+            var urls = new List<string>();
+
+            int ndx = html.IndexOf("\"ou\"", StringComparison.Ordinal);
+
+            while (ndx >= 0)
+            {
+                ndx = html.IndexOf("\"", ndx + 4, StringComparison.Ordinal);
+                ndx++;
+                int ndx2 = html.IndexOf("\"", ndx, StringComparison.Ordinal);
+                string url = html.Substring(ndx, ndx2 - ndx);
+                urls.Add(url);
+                ndx = html.IndexOf("\"ou\"", ndx2, StringComparison.Ordinal);
+            }
+            return urls;
+        }
+        private static byte[] GetImage(string url)
+        {
+            var request = (HttpWebRequest)WebRequest.Create(url);
+            var response = (HttpWebResponse)request.GetResponse();
+
+            using (Stream dataStream = response.GetResponseStream())
+            {
+                if (dataStream == null)
+                    return null;
+                using (var sr = new BinaryReader(dataStream))
+                {
+                    byte[] bytes = sr.ReadBytes(100000000);
+
+                    return bytes;
+                }
+            }
+
+            return null;
         }
     }
 }

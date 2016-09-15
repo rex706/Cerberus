@@ -7,6 +7,7 @@ Commands
 * !cat ---------------------------------- generate random cat picture.
 * !dog ---------------------------------- generate random dog picture.
 * !tits ---------------------------------- natural tits! (birds).
+* !gimme [search phrase] ----------------- random image from search phrase.
 * !region -------------------------------- get discord server region.
 * !minecraft ----------------------------- minecraft server status. 
 * !starbound ----------------------------- starbound server status.
