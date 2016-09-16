@@ -88,7 +88,7 @@ namespace Cerberus_CMD
                         string filetype = s.Substring(pIdx);
                         string filename = "cat.png";
 
-                        if(filetype.Contains("gif"))
+                        if(filetype.Contains(".gif"))
                         {
                             filename = "cat.gif";
                         }
@@ -202,8 +202,8 @@ namespace Cerberus_CMD
                     e.Channel.SendMessage("Another vote is in progress! Please try again after voting has finished.");
                 }
 
-                //currently not working - jail user to specific voice channel by removing all roles and applying the 'noob' role.
-                //need to fix removal of roles, adding noob role is easy
+                // Currently not working - jail user to specific voice channel by removing all roles and applying the 'noob' role.
+                // Need to fix removal of roles, adding noob role is easy
                 if (e.Message.Text.Contains("!jail") && !e.User.IsBot && VoteJailInProgress == false)
                 {
                     KickMessage = e.Message.Text.Split(' ');
@@ -242,7 +242,7 @@ namespace Cerberus_CMD
                     }
                 }
 
-                //vote to kick
+                // Vote to kick
                 if (e.Message.Text.Contains("!kick") && !e.User.IsBot && VoteKickInProgress == false)
                 {
 
@@ -297,7 +297,7 @@ namespace Cerberus_CMD
                     }
                     if (Democracy == 0)
                     {
-                        //kick user
+                        // Kick user
                         if (KickTimerRunning == true)
                         {
                             Console.WriteLine("Kicking " + tokick.Name + "...");
@@ -310,7 +310,7 @@ namespace Cerberus_CMD
 
                             VoteKickInProgress = false;
                         }
-                        //jail user
+                        // Jail user
                         else if(JailTimerRunning == true)
                         {
                             Console.WriteLine("Sending " + tojail.Name + " to jail!");
@@ -340,8 +340,8 @@ namespace Cerberus_CMD
                                 }
                                 else
                                 {
-                                    //sometimes wont work if there is only one of these
-                                    //I put a bunch just to be sure
+                                    // Sometimes wont work if there is only one of these
+                                    // I put a bunch just to be sure
                                     tojail.RemoveRoles(_roles[i]);
                                     tojail.RemoveRoles(_roles[i]);
                                     tojail.RemoveRoles(_roles[i]);
@@ -353,7 +353,7 @@ namespace Cerberus_CMD
                                 }
                             }
 
-                            //wait 5 seconds to allow role deletion to update with discord servers before adding the noob role to prevent resetting the whole process
+                            // Wait 5 seconds to allow role deletion to update with discord servers before adding the noob role to prevent resetting the whole process
                             RoleAdjustTimer = new System.Timers.Timer(5000);
                             RoleAdjustTimer.Elapsed += new ElapsedEventHandler(RoleAdjustTimer_Elapsed);
                             RoleAdjustTimer.Start();
@@ -367,7 +367,7 @@ namespace Cerberus_CMD
                     }
                 }
 
-                //apply the member role to all guild users, but only if user has admin role
+                // Apply the member role to all guild users, but only if user has admin role
                 if(e.Message.Text == "!member")
                 {
                     IEnumerable<Role> roles = e.User.Roles;
@@ -379,8 +379,8 @@ namespace Cerberus_CMD
                             IEnumerable<User> users = e.Server.Users;
                             foreach (User user in users)
                             {
-                                //add member role, may have to just cycle through and save the noob role and member role as individual global variables
-                                //this will make it way easier to remove or apply them whenever, where ever
+                                // Add member role, may have to just cycle through and save the noob role and member role as individual global variables
+                                // This will make it way easier to remove or apply them whenever, where ever
                                 user.AddRoles(); 
 
                             }
@@ -388,6 +388,7 @@ namespace Cerberus_CMD
                     }
                 }
 
+                // Random image from search phrase
                 if (e.Message.Text.Contains("!gimme") && !e.User.IsBot)
                 {
                     string[] phrase = e.Message.Text.Split(' ');
@@ -409,21 +410,34 @@ namespace Cerberus_CMD
 
                     int random = rnd.Next(0, urls.Count - 1);
                     string luckyUrl = urls[random];
+                    int dotIdx = luckyUrl.LastIndexOf(".");
+                    string fileType = luckyUrl.Substring(dotIdx);
 
                     WebClient webclient = new WebClient();
-                    
-                    try
-                    {
-                        webclient.DownloadFile(luckyUrl, "random.png");
 
-                        e.Channel.SendMessage("I found " + query + "!");
-                        e.Channel.SendFile("random.png");
-                    }
-                    catch
+                    // Try to download random image 5 times before giving up
+                    for (int attempt = 0; attempt < 5; attempt++)
                     {
-                        e.Channel.SendMessage("Something went wrong :( Please try again!");
+                        try
+                        {
+                            webclient.DownloadFile(luckyUrl, "random" + fileType);
+
+                            e.Channel.SendMessage("I found " + query + "!");
+                            e.Channel.SendFile("random" + fileType);
+
+                            break;
+                        }
+                        catch
+                        {
+                            random = rnd.Next(0, urls.Count - 1);
+                            luckyUrl = urls[random];
+                            dotIdx = luckyUrl.LastIndexOf(".");
+                            fileType = luckyUrl.Substring(dotIdx);
+
+                            if (attempt == 4)
+                                e.Channel.SendMessage("Something went wrong :confused: Please try again!");
+                        }
                     }
-                    
                 }
 
                 // Echo current discord region
@@ -442,7 +456,7 @@ namespace Cerberus_CMD
                 }
             };
 
-            //When a new user joins the server, send a message to them.
+            // When a new user joins the server, send a message to them.
             client.UserJoined += (sender, e) =>
             {
                 e.User.SendMessage("Welcome, " + e.User.Name + "!\nType '!help' for a list of available commands.");
@@ -487,7 +501,7 @@ namespace Cerberus_CMD
         {
             JailTimer.Stop();
 
-            //vote failed
+            // Vote failed
             if (Democracy > 0)
             {
                 Console.WriteLine("Vote to jail " + tokick.Name + " failed.");
@@ -504,7 +518,7 @@ namespace Cerberus_CMD
         {
             KickTimer.Stop();
 
-            //vote failed
+            // Vote failed
             if (Democracy > 0)
             {
                 Console.WriteLine("Vote to kick " + tokick.Name + " failed.");
@@ -521,7 +535,7 @@ namespace Cerberus_CMD
         {
             var voiceChannel = client.FindServers("|🚷|");
 
-            //apply the noob role and stop timer
+            // Apply the noob role and stop timer
             tojail.AddRoles(_roles[noobidx]);
             RoleAdjustTimer.Stop();
         }
@@ -538,7 +552,7 @@ namespace Cerberus_CMD
             TcpClient StarboundServer = new TcpClient();
             LastSuccPing = DateTime.Now.ToString();
 
-            //minecraft
+            // Minecraft
             if (!MinecraftServer.ConnectAsync(ServerIP, 25565).Wait(3500))
             {
                 Console.ForegroundColor = ConsoleColor.Red;
@@ -560,7 +574,7 @@ namespace Cerberus_CMD
                 string CopyPath = @"D:\Documents\Google Drive\Servers\1.9Tekxit2 Server\1.9Tekxit2_Server_Backup";
                 string ZipPath = @"D:\Documents\Google Drive\Servers\1.9Tekxit2 Server\TekxitBackup.zip";
 
-                //zip server files for a backup. keep a few backups and time stamp them
+                // Zip server files for a backup. keep a few backups and time stamp them
                 if (Directory.Exists(CopyPath))
                 {
                     Directory.Delete(CopyPath, true);
@@ -586,7 +600,7 @@ namespace Cerberus_CMD
                 Directory.Delete(CopyPath, true);
             }
 
-            //starbound
+            // Starbound
             if (!StarboundServer.ConnectAsync(ServerIP, 21025).Wait(3500))
             {
                 Console.ForegroundColor = ConsoleColor.Red;
@@ -666,25 +680,6 @@ namespace Cerberus_CMD
                 ndx = html.IndexOf("\"ou\"", ndx2, StringComparison.Ordinal);
             }
             return urls;
-        }
-        private static byte[] GetImage(string url)
-        {
-            var request = (HttpWebRequest)WebRequest.Create(url);
-            var response = (HttpWebResponse)request.GetResponse();
-
-            using (Stream dataStream = response.GetResponseStream())
-            {
-                if (dataStream == null)
-                    return null;
-                using (var sr = new BinaryReader(dataStream))
-                {
-                    byte[] bytes = sr.ReadBytes(100000000);
-
-                    return bytes;
-                }
-            }
-
-            return null;
         }
     }
 }
