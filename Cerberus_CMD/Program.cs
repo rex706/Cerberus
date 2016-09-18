@@ -498,19 +498,34 @@ namespace Cerberus_CMD
             // Connect bot and start timers
             client.ExecuteAndWait(async () =>
             {
-                // bot token
-                await client.Connect("BOT_TOKEN", TokenType.Bot);
-                client.SetGame(null);
+                Console.WriteLine("Connecting...");
+                try
+                {
+                    // bot token
+                    await client.Connect("MjA2OTU1MjcwMzIzMTc1NDI2.Crus_Q.vLYyhiFR9NHlxaNmKLAE-C9p728", TokenType.Bot);
+                    client.SetGame(null);
 
-                // Done!
-                Console.WriteLine("Client connected!\n\n-----------------\n");
+                    // Done!
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("\nClient connected!");
+                    Console.ResetColor();
+                    Console.WriteLine(" \n-----------------\n");
 
-                // Start auto server ping/backup timer
-                AutoPingTimer = new System.Timers.Timer(1800000); //600000ms = 10 min, 1200000 = 20 min, 1800000 = 30 min, 3600000 = 1 hr
-                AutoPingTimer.Elapsed += new ElapsedEventHandler(AutoPingTimer_Elapsed);
-                AutoPingTimer.Start();
+                    // Start auto server ping/backup timer
+                    AutoPingTimer = new System.Timers.Timer(1800000); //600000ms = 10 min, 1200000 = 20 min, 1800000 = 30 min, 3600000 = 1 hr
+                    AutoPingTimer.Elapsed += new ElapsedEventHandler(AutoPingTimer_Elapsed);
+                    AutoPingTimer.Start();
 
-                ServerStatus();
+                    ServerStatus();
+                }
+                catch
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.Write("\nConnection failed! ");
+                    Console.WriteLine("Is there another client already open?");
+                    Console.ResetColor();
+                    Console.ReadLine();
+                }
             });
         }
         private static void JailTimer_Elapsed(object sender, ElapsedEventArgs e)
