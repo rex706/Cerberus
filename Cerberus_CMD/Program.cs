@@ -42,8 +42,6 @@ namespace Cerberus_CMD
         private static bool VoteKickInProgress = false;
         private static bool VoteJailInProgress = false;
 
-        private static string query;
-
         static void Main(string[] args)
         {
             Console.WriteLine("Creating Client");
@@ -66,7 +64,7 @@ namespace Cerberus_CMD
                     "!cat -------- random cat picture.\n" +
                     "!dog -------- random dog picture.\n" +
                     "!tits -------- show me the money!\n" +
-                    "!gimme [search phrase] - get random image from search phrase.\n" + 
+                    "!gimme\\!find [search phrase] - get random image from search phrase.\n" + 
                     "!region ----- current Discord region.\n" +
                     "!minecraft - minecraft server status.\n" +
                     "!starbound - starbound server status.\n" +
@@ -389,22 +387,27 @@ namespace Cerberus_CMD
                 }
 
                 // Random image from search phrase
-                if (e.Message.Text.Contains("!gimme") && !e.User.IsBot)
+                if ((e.Message.Text.Contains("!gimme") || e.Message.Text.Contains("!find")) && !e.User.IsBot)
                 {
                     string[] phrase = e.Message.Text.Split(' ');
-                    query = null;
-
+                    string query = null;
+                    bool plural = false;
+                    char last;
                     if (phrase.Length > 2)
                     {
                         for (int i = 1; i < phrase.Length; i++)
                             query += phrase[i] + " ";
+  
+                        plural = true;
                     }
                     else
                     {
                         query = phrase[1];
                     }
 
-                    string html = GetHtmlCode();
+                    last = query[query.Length - 1];
+
+                    string html = GetHtmlCode(query);
                     List<string> urls = GetUrls(html);
                     var rnd = new Random();
 
@@ -412,6 +415,15 @@ namespace Cerberus_CMD
                     string luckyUrl = urls[random];
                     int dotIdx = luckyUrl.LastIndexOf(".");
                     string fileType = luckyUrl.Substring(dotIdx);
+
+                    // Try new url until a supported filetype is found
+                    while (fileType != ".gif" && fileType != ".png" && fileType != ".jpg" && fileType != ".jpeg")
+                    {
+                        random = rnd.Next(0, urls.Count - 1);
+                        luckyUrl = urls[random];
+                        dotIdx = luckyUrl.LastIndexOf(".");
+                        fileType = luckyUrl.Substring(dotIdx);
+                    }
 
                     WebClient webclient = new WebClient();
 
@@ -422,7 +434,11 @@ namespace Cerberus_CMD
                         {
                             webclient.DownloadFile(luckyUrl, "random" + fileType);
 
-                            e.Channel.SendMessage("I found " + query + "!");
+                            if (plural || last.Equals('s'))
+                                e.Channel.SendMessage("I found " + query + "!");
+                            else
+                                e.Channel.SendMessage("I found a " + query + "!");
+
                             e.Channel.SendFile("random" + fileType);
 
                             break;
@@ -642,9 +658,9 @@ namespace Cerberus_CMD
 
         }
 
-        private static string GetHtmlCode()
+        private static string GetHtmlCode(string s)
         {
-            string url = "https://www.google.com/search?q=" + query + "&tbm=isch";
+            string url = "https://www.google.com/search?q=" + s + "&tbm=isch";
             string data = "";
 
             var request = (HttpWebRequest)WebRequest.Create(url);
