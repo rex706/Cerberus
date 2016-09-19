@@ -44,6 +44,13 @@ namespace Cerberus_CMD
 
         static void Main(string[] args)
         {
+            Console.ForegroundColor = ConsoleColor.DarkMagenta;
+            Console.WriteLine("   ______          __\n" +
+                              "  / ____/__  _____/ /_  ___  _______  _______\n" + 
+                              " / /   / _ \\/ ___/ __ \\/ _ \\/ ___/ / / / ___/\n" +
+                              "/ /___/  __/ /  / /_/ /  __/ /  / /_/ (_  _)\n"+
+                              "\\____/\\___/_/  /_/___/\\___/_/   \\____/____/\n");
+            Console.ResetColor();
             Console.WriteLine("Creating Client");
 
             client = new DiscordClient();
@@ -109,18 +116,6 @@ namespace Cerberus_CMD
                         webclient.DownloadFile("http://random.dog/" + dog, "dog.png");
                         e.Channel.SendMessage("woof!");
                         e.Channel.SendFile("dog.png");
-                    }
-                }
-                if (e.Message.Text == "!catdog")
-                {
-                    Thread t = new Thread(new ParameterizedThreadStart(randomcat));
-                    t.Start(e.Channel);
-                    string s;
-                    using (WebClient webclient = new WebClient())
-                    {
-                        webclient.DownloadFile("http://media.tumblr.com/3d6cbf48019ba4c8f023b09b7c7f4102/tumblr_inline_mruemiB93V1qz4rgp.gif", "catdog.png");
-                        e.Channel.SendMessage("Which one poops?");
-                        e.Channel.SendFile("catdog.png");
                     }
                 }
                 if (e.Message.Text == "!tits")
@@ -392,12 +387,16 @@ namespace Cerberus_CMD
                     string[] phrase = e.Message.Text.Split(' ');
                     string query = null;
                     bool plural = false;
-                    char last;
+
                     if (phrase.Length > 2)
                     {
                         for (int i = 1; i < phrase.Length; i++)
-                            query += phrase[i] + " ";
-  
+                            
+                            if (i == phrase.Length - 1)
+                                query += phrase[i];
+                            else
+                                query += phrase[i] + " ";
+
                         plural = true;
                     }
                     else
@@ -405,7 +404,8 @@ namespace Cerberus_CMD
                         query = phrase[1];
                     }
 
-                    last = query[query.Length - 1];
+                    if (query[query.Length - 1].Equals('s'))
+                        plural = true;
 
                     string html = GetHtmlCode(query);
                     List<string> urls = GetUrls(html);
@@ -434,12 +434,19 @@ namespace Cerberus_CMD
                         {
                             webclient.DownloadFile(luckyUrl, "random" + fileType);
 
-                            Console.WriteLine("Found looking for: " + query);
+                            Console.ForegroundColor = ConsoleColor.White;
+                            Console.Write(e.User.Name);
+                            Console.ResetColor();
+                            Console.Write(" queried in ");
+                            Console.ForegroundColor = ConsoleColor.White;
+                            Console.Write("#" + e.Channel.Name);
+                            Console.ResetColor();
+                            Console.WriteLine(": " + query);
                             Console.ForegroundColor = ConsoleColor.DarkGray;
-                            Console.WriteLine(luckyUrl);
+                            Console.WriteLine(luckyUrl + "\n");
                             Console.ResetColor();
 
-                            if (plural || last.Equals('s'))
+                            if (plural)
                                 e.Channel.SendMessage("I found " + query + "!");
                             else
                                 e.Channel.SendMessage("I found a " + query + "!");
@@ -586,21 +593,16 @@ namespace Cerberus_CMD
         {
             TcpClient MinecraftServer = new TcpClient();
             TcpClient StarboundServer = new TcpClient();
+
             LastSuccPing = DateTime.Now.ToString();
 
-            // Minecraft
-            if (!MinecraftServer.ConnectAsync(ServerIP, 25565).Wait(3500))
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Minecraft Server OFFLINE");
-                Console.ResetColor();
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Minecraft Server ONLINE  -  " + ServerIP + ":25565  -  " + LastSuccPing + "\n");
-                Console.ResetColor();
+            bool mOnline = false;
+            bool sOnline = false;
 
+            // Minecraft
+            if (MinecraftServer.ConnectAsync(ServerIP, 25565).Wait(3500))
+            {
+                mOnline = true;
                 var pings = new IniFile("pings.ini");
                 pings.Write("Minecraft", LastSuccPing, "Pings");
 
@@ -637,22 +639,36 @@ namespace Cerberus_CMD
             }
 
             // Starbound
-            if (!StarboundServer.ConnectAsync(ServerIP, 21025).Wait(3500))
+            if (StarboundServer.ConnectAsync(ServerIP, 21025).Wait(3500))
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Starbound Server OFFLINE");
-                Console.ResetColor();
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Starbound Server ONLINE  -  " + ServerIP + ":21025  -  " + LastSuccPing);
-                Console.ResetColor();
-
+                sOnline = true;
                 var pings = new IniFile("pings.ini");
                 pings.Write("Starbound", LastSuccPing, "Pings");
             }
 
+            // Print status to console
+            if (mOnline)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("Minecraft Server ONLINE  -  " + ServerIP + ":25565  -  " + LastSuccPing);
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Minecraft Server OFFLINE");
+            }
+            if (sOnline)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("Starbound Server ONLINE  -  " + ServerIP + ":21025  -  " + LastSuccPing);
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Starbound Server OFFLINE");
+            }
+
+            Console.ResetColor();
             Console.WriteLine();
         }
         private static void CopyAll(DirectoryInfo source, DirectoryInfo target)
