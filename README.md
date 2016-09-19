@@ -1,13 +1,15 @@
 # Cerberus				![alt tag](http://i.imgur.com/Z3cuEJA.png?1)
 Discord chat bot with some useful user commands.
 
+![alt tag](http://i.imgur.com/D0sQKLN.png)
+
 -Requires DiscordNet Nuget package-
 
 Commands
 * !cat ---------------------------------- generate random cat picture.
 * !dog ---------------------------------- generate random dog picture.
 * !tits ---------------------------------- natural tits! (birds).
-* !gimme [search phrase] ----------------- random image from search phrase.
+* !gimme/!find [search phrase] ----------- random image from search phrase.
 * !region -------------------------------- get discord server region.
 * !minecraft ----------------------------- minecraft server status. 
 * !starbound ----------------------------- starbound server status.
