@@ -434,6 +434,11 @@ namespace Cerberus_CMD
                         {
                             webclient.DownloadFile(luckyUrl, "random" + fileType);
 
+                            Console.WriteLine("Found looking for: " + query);
+                            Console.ForegroundColor = ConsoleColor.DarkGray;
+                            Console.WriteLine(luckyUrl);
+                            Console.ResetColor();
+
                             if (plural || last.Equals('s'))
                                 e.Channel.SendMessage("I found " + query + "!");
                             else
