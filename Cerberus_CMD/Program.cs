@@ -8,6 +8,7 @@ using Discord.Audio;
 using System.Net.Sockets;
 using System.IO;
 using System.IO.Compression;
+using System.Reflection;
 
 namespace Cerberus_CMD
 { 
@@ -21,35 +22,64 @@ namespace Cerberus_CMD
         private static string LastSuccPing = "never";
 
         private static System.Timers.Timer KickTimer;
-        private static System.Timers.Timer JailTimer;
         private static bool KickTimerRunning = false;
-        private static bool JailTimerRunning = false;
-        private static List<string> VotedUsers;
+        private static HashSet<string> VotedUsers;
 
         private static System.Timers.Timer AutoPingTimer;
-        private static System.Timers.Timer RoleAdjustTimer;
 
         private static int NumUsers;
         private static int Democracy;
 
         private static string[] KickMessage;
         private static User tokick;
-        private static User tojail;
-
-        private static Role[] _roles;
-        private static int noobidx;
 
         private static bool VoteKickInProgress = false;
-        private static bool VoteJailInProgress = false;
+
+        private static string errorMsg = "Something went wrong :confused: Please try again!";
+
+        private static bool logChat = false;
+        private static bool serverPing = false;
+
+        private static bool logUsers = false;
+        private static HashSet<string> userSet;
 
         static void Main(string[] args)
         {
+            // Cerberus logo and version
             Console.ForegroundColor = ConsoleColor.DarkMagenta;
             Console.WriteLine("   ______          __\n" +
                               "  / ____/__  _____/ /_  ___  _______  _______\n" + 
                               " / /   / _ \\/ ___/ __ \\/ _ \\/ ___/ / / / ___/\n" +
                               "/ /___/  __/ /  / /_/ /  __/ /  / /_/ (_  _)\n"+
                               "\\____/\\___/_/  /_/___/\\___/_/   \\____/____/\n");
+            Console.WriteLine("v"+ Assembly.GetExecutingAssembly().GetName().Version.ToString() +" \n");
+
+            // Change color for command line arguemnts 
+            Console.ForegroundColor = ConsoleColor.DarkCyan;
+
+            if (args.Length > 0)
+            {
+                foreach (string arg in args)
+                {
+                    if (arg == "-chat")
+                    {
+                        logChat = true;
+                        Console.WriteLine("[chat logging enabled]");
+                    }
+                    if (arg == "-users")
+                    {
+                        logUsers = true;
+                        Console.WriteLine("[user logging enabled]");
+                    }
+                    if (arg == "-ping")
+                    {
+                        serverPing = true;
+                        Console.WriteLine("[server pinging enabled]");
+                    }
+                }
+            }
+
+            Console.WriteLine();
             Console.ResetColor();
             Console.WriteLine("Creating Client");
 
@@ -58,6 +88,22 @@ namespace Cerberus_CMD
             // Set up events
             Console.WriteLine("Defining Events");
 
+            userSet = new HashSet<string>();
+
+            if (!File.Exists("user_names.txt"))
+            {
+                File.CreateText("user_names.txt");
+            }
+            else
+            {
+                StreamReader file = new StreamReader("user_names.txt");
+                string line;
+                while ((line = file.ReadLine()) != null)
+                {
+                    userSet.Add(line);
+                }
+            }
+
             client.UsingAudio(x => // Opens an AudioConfigBuilder so we can configure our AudioService
             {
                 x.Mode = AudioMode.Outgoing; // Tells the AudioService that we will only be sending audio
@@ -65,6 +111,50 @@ namespace Cerberus_CMD
 
             client.MessageReceived += (sender, e) => // Channel message has been received
             {
+                if (!e.User.IsBot || e.Message.Text.Contains(errorMsg))
+                {
+                    if (e.Message.Attachments.Length > 0)
+                    {
+                        Console.WriteLine(e.User.Name + ": [attachment] " + e.Message.Text + "\n");
+                    }
+                    else
+                    {
+                        Console.WriteLine(e.User.Name + ": " + e.Message.Text + "\n");
+                    }
+
+                    if (logChat)
+                    {
+                        if (!File.Exists("chat_log.txt"))
+                        {
+                            using (StreamWriter file = File.CreateText("chat_log.txt"))
+                            {
+                                if (e.Message.Attachments.Length > 0)
+                                {
+                                    file.WriteLine(e.User.Name + ": [attachment] " + e.Message.Text);
+                                }
+                                else
+                                {
+                                    file.WriteLine(e.User.Name + ": " + e.Message.Text);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            using (StreamWriter file = File.AppendText("chat_log.txt"))
+                            {
+                                if (e.Message.Attachments.Length > 0)
+                                {
+                                    file.WriteLine(e.User.Name + ": [attachment] " + e.Message.Text);
+                                }
+                                else
+                                {
+                                    file.WriteLine(e.User.Name + ": " + e.Message.Text);
+                                }
+                            }
+                        }
+                    }
+                }
+                
                 if (e.Message.Text == "!help")
                 {
                     e.Channel.SendMessage("\n\n```css\n#UserCommands```\n" +
@@ -190,51 +280,11 @@ namespace Cerberus_CMD
                 }
 
                 // Make sure only one vote can be in progress at a time
-                if ((e.Message.Text.Contains("!jail") || e.Message.Text.Contains("!kick")) && !e.User.IsBot && (VoteKickInProgress == true || VoteJailInProgress == true))
+                if (e.Message.Text.Contains("!kick") && !e.User.IsBot && VoteKickInProgress == true)
                 {
                     e.Channel.SendMessage("Another vote is in progress! Please try again after voting has finished.");
                 }
-
-                // Currently not working - jail user to specific voice channel by removing all roles and applying the 'noob' role.
-                // Need to fix removal of roles, adding noob role is easy
-                if (e.Message.Text.Contains("!jail") && !e.User.IsBot && VoteJailInProgress == false)
-                {
-                    KickMessage = e.Message.Text.Split(' ');
-
-                    try
-                    {
-                        tojail = e.Server.GetUser(KickMessage[1], ushort.Parse(KickMessage[2]));
-                    }
-                    catch
-                    {
-                    }
-                    if (tojail == null)
-                    {
-                        e.Channel.SendMessage("Invalid user!");
-                    }
-                    else
-                    {
-                        Console.WriteLine(e.User.Name + " initiated vote to jail " + tojail.Name);
-
-                        VoteJailInProgress = true;
-                        lastchannel = e.Channel;
-                        NumUsers = e.Server.UserCount; //e.Sever.Users.Count();
-                        Democracy = 1; //(NumUsers / 6);
-
-                        if (Democracy == 1)
-                            e.Channel.SendMessage("Vote to jail " + tojail.Mention + " initiated for 2 minutes! **" + Democracy + "** vote required.\n\n```Type !yes to jail.```");
-                        else
-                            e.Channel.SendMessage("Vote to jail " + tojail.Mention + " initiated for 2 minutes! **" + Democracy + "** votes required.\n\n```Type !yes to jail.```");
-
-                        JailTimer = new System.Timers.Timer(120000);
-                        JailTimer.Elapsed += new ElapsedEventHandler(KickTimer_Elapsed);
-                        JailTimer.Start();
-                        JailTimerRunning = true;
-
-                        VotedUsers = new List<string>();
-                    }
-                }
-
+                
                 // Vote to kick
                 if (e.Message.Text.Contains("!kick") && !e.User.IsBot && VoteKickInProgress == false)
                 {
@@ -270,11 +320,11 @@ namespace Cerberus_CMD
                         KickTimer.Start();
                         KickTimerRunning = true;
 
-                        VotedUsers = new List<string>();
+                        VotedUsers = new HashSet<string>();
                     }
-
                 }
-                if (e.Message.Text == "!yes" && (KickTimerRunning == true || JailTimerRunning == true) && !VotedUsers.Contains(e.User.Name))
+
+                if (e.Message.Text == "!yes" && KickTimerRunning == true && !VotedUsers.Contains(e.User.Name))
                 {
                     Democracy -= 1;
 
@@ -303,86 +353,11 @@ namespace Cerberus_CMD
 
                             VoteKickInProgress = false;
                         }
-                        // Jail user
-                        else if(JailTimerRunning == true)
-                        {
-                            Console.WriteLine("Sending " + tojail.Name + " to jail!");
-                            e.Channel.SendMessage("Vote passed! Adjusting roles...");
-
-                            int i = 0;
-                            noobidx = 0;
-
-                            IEnumerable<Role> roles = e.Server.Roles;
-                            _roles = new Role[e.Server.RoleCount];
-
-                            foreach (Role role in roles)
-                            {
-                                _roles[i] = role;
-                                i++;
-                            }
-
-                            for(i = 0; i < e.Server.RoleCount; i++)
-                            {
-                                if (_roles[i].Name.Contains("noob"))
-                                {
-                                    noobidx = i;
-                                }
-                                else if (_roles[i].Name.Contains("@everyone"))
-                                {
-
-                                }
-                                else
-                                {
-                                    // Sometimes wont work if there is only one of these
-                                    // I put a bunch just to be sure
-                                    tojail.RemoveRoles(_roles[i]);
-                                    tojail.RemoveRoles(_roles[i]);
-                                    tojail.RemoveRoles(_roles[i]);
-                                    tojail.RemoveRoles(_roles[i]);
-                                    tojail.RemoveRoles(_roles[i]);
-                                    tojail.RemoveRoles(_roles[i]);
-                                    tojail.RemoveRoles(_roles[i]);
-                                    tojail.RemoveRoles(_roles[i]);
-                                }
-                            }
-
-                            // Wait 5 seconds to allow role deletion to update with discord servers before adding the noob role to prevent resetting the whole process
-                            RoleAdjustTimer = new System.Timers.Timer(5000);
-                            RoleAdjustTimer.Elapsed += new ElapsedEventHandler(RoleAdjustTimer_Elapsed);
-                            RoleAdjustTimer.Start();
-
-                            JailTimer.Stop();
-                            JailTimerRunning = false;
-                            VotedUsers = null;
-
-                            VoteJailInProgress = false;
-                        }
-                    }
-                }
-
-                // Apply the member role to all guild users, but only if user has admin role
-                if(e.Message.Text == "!member")
-                {
-                    IEnumerable<Role> roles = e.User.Roles;
-                    foreach (Role role in roles)
-                    {
-                        if (role.Name.Contains("Admin"))
-                        {
-                            //loop through all users and apply 'Member' role;
-                            IEnumerable<User> users = e.Server.Users;
-                            foreach (User user in users)
-                            {
-                                // Add member role, may have to just cycle through and save the noob role and member role as individual global variables
-                                // This will make it way easier to remove or apply them whenever, where ever
-                                user.AddRoles(); 
-
-                            }
-                        }
                     }
                 }
 
                 // Random image from search phrase
-                if ((e.Message.Text.Contains("!gimme") || e.Message.Text.Contains("!find")) && !e.User.IsBot)
+                if ((e.Message.Text.Contains("!gimme") || e.Message.Text.Contains("!find") || e.Message.Text.Contains("!search")) && !e.User.IsBot)
                 {
                     string[] phrase = e.Message.Text.Split(' ');
                     string query = null;
@@ -416,13 +391,27 @@ namespace Cerberus_CMD
                     int dotIdx = luckyUrl.LastIndexOf(".");
                     string fileType = luckyUrl.Substring(dotIdx);
 
-                    // Try new url until a supported filetype is found
-                    while (fileType != ".gif" && fileType != ".png" && fileType != ".jpg" && fileType != ".jpeg")
+                    if (e.Message.Text.Contains(" gif"))
                     {
-                        random = rnd.Next(0, urls.Count - 1);
-                        luckyUrl = urls[random];
-                        dotIdx = luckyUrl.LastIndexOf(".");
-                        fileType = luckyUrl.Substring(dotIdx);
+                        // Try new url until a gif is found
+                        while (fileType != ".gif")
+                        {
+                            random = rnd.Next(0, urls.Count - 1);
+                            luckyUrl = urls[random];
+                            dotIdx = luckyUrl.LastIndexOf(".");
+                            fileType = luckyUrl.Substring(dotIdx);
+                        }
+                    }
+                    else
+                    {
+                        // Try new url until a supported filetype is found
+                        while (fileType != ".gif" && fileType != ".png" && fileType != ".jpg" && fileType != ".jpeg")
+                        {
+                            random = rnd.Next(0, urls.Count - 1);
+                            luckyUrl = urls[random];
+                            dotIdx = luckyUrl.LastIndexOf(".");
+                            fileType = luckyUrl.Substring(dotIdx);
+                        }
                     }
 
                     WebClient webclient = new WebClient();
@@ -437,11 +426,9 @@ namespace Cerberus_CMD
                             Console.ForegroundColor = ConsoleColor.White;
                             Console.Write(e.User.Name);
                             Console.ResetColor();
-                            Console.Write(" queried in ");
+                            Console.Write(" queried '" + query + "' in ");
                             Console.ForegroundColor = ConsoleColor.White;
-                            Console.Write("#" + e.Channel.Name);
-                            Console.ResetColor();
-                            Console.WriteLine(": " + query);
+                            Console.Write("#" + e.Channel.Name + "\n");
                             Console.ForegroundColor = ConsoleColor.DarkGray;
                             Console.WriteLine(luckyUrl + "\n");
                             Console.ResetColor();
@@ -457,13 +444,31 @@ namespace Cerberus_CMD
                         }
                         catch
                         {
-                            random = rnd.Next(0, urls.Count - 1);
-                            luckyUrl = urls[random];
-                            dotIdx = luckyUrl.LastIndexOf(".");
-                            fileType = luckyUrl.Substring(dotIdx);
+                            if (e.Message.Text.Contains(" gif"))
+                            {
+                                // Try new url until a gif is found
+                                while (fileType != ".gif")
+                                {
+                                    random = rnd.Next(0, urls.Count - 1);
+                                    luckyUrl = urls[random];
+                                    dotIdx = luckyUrl.LastIndexOf(".");
+                                    fileType = luckyUrl.Substring(dotIdx);
+                                }
+                            }
+                            else
+                            {
+                                // Try new url until a supported filetype is found
+                                while (fileType != ".gif" && fileType != ".png" && fileType != ".jpg" && fileType != ".jpeg")
+                                {
+                                    random = rnd.Next(0, urls.Count - 1);
+                                    luckyUrl = urls[random];
+                                    dotIdx = luckyUrl.LastIndexOf(".");
+                                    fileType = luckyUrl.Substring(dotIdx);
+                                }
+                            }
 
                             if (attempt == 4)
-                                e.Channel.SendMessage("Something went wrong :confused: Please try again!");
+                                e.Channel.SendMessage(errorMsg);
                         }
                     }
                 }
@@ -490,15 +495,78 @@ namespace Cerberus_CMD
                 e.User.SendMessage("Welcome, " + e.User.Name + "!\nType '!help' for a list of available commands.");
             };
 
-            // Welcome a user when they come back online or join a voice channel after not have being connected previously.
-            //client.UserUpdated += (sender, e) =>
-            //{
-            //    //user was offline and came back online
-            //    if ((e.Before.Status == UserStatus.Offline && e.After.Status == UserStatus.Online) || (e.Before.VoiceChannel == null && e.After.VoiceChannel != null))
-            //    {
-            //        e.Server.DefaultChannel.SendMessage("Welcome back, " + e.After.Name + "!");
-            //    }
-            //};
+           // Welcome a user when they come back online or join a voice channel after not have being connected previously.
+           client.UserUpdated += (sender, e) =>
+           {
+               // User was offline and came back online
+               // (e.Before.Status == UserStatus.Offline && e.After.Status == UserStatus.Online)
+
+               // User joined a voice channel after not being previously connected to any.
+               if (e.Before.VoiceChannel == null && e.After.VoiceChannel != null)
+               {
+                   Console.WriteLine(e.After.Name.ToString() + " joined.\n");
+
+                   if (logChat)
+                   {
+                       using (StreamWriter file = File.AppendText("chat_log.txt"))
+                       {
+                           file.WriteLine(e.After.Name.ToString() + " joined.");
+                       }
+                   }
+                   
+                   //e.Server.DefaultChannel.SendMessage("Welcome back, " + e.After.Name + "!");
+
+                   if (logUsers)
+                   {
+                       if (userSet.Add(e.After.Name.ToString()))
+                       {
+                           Console.WriteLine("Added " + e.After.Name.ToString() + " to HashSet\n");
+                           using (StreamWriter file = File.AppendText("user_names.txt"))
+                           {
+                               file.WriteLine(e.After.Name.ToString());
+                           }
+                       }
+                   }
+               }
+               if (e.Before.VoiceChannel != null && e.After.VoiceChannel == null)
+               {
+                   Console.WriteLine(e.After.Name.ToString() + " left.\n");
+
+                   if (logChat)
+                   {
+                       using (StreamWriter file = File.AppendText("chat_log.txt"))
+                       {
+                           file.WriteLine(e.After.Name.ToString() + " left.\n");
+                       }
+                   }
+               }
+
+               if (e.After.VoiceChannel.Name == "AFK")
+               {
+                   Console.WriteLine(e.After.Name + " went afk.\n");
+
+                   if (logChat)
+                   {
+                       using (StreamWriter file = File.AppendText("chat_log.txt"))
+                       {
+                           file.WriteLine(e.After.Name + " went afk.");
+                       }
+                   }
+               }
+
+               if (e.Before.VoiceChannel.Name == "AFK" && e.After.VoiceChannel.Name != "AFK" && e.After.VoiceChannel != null)
+               {
+                   Console.WriteLine(e.After.Name + " is no longer afk.\n");
+
+                   if (logChat)
+                   {
+                       using (StreamWriter file = File.AppendText("chat_log.txt"))
+                       {
+                           file.WriteLine(e.After.Name + " is no longer afk.\n");
+                       }
+                   }
+               }
+           };
 
             // Prevents messages from being deleted
             //client.MessageDeleted += (sender, e) =>
@@ -523,39 +591,27 @@ namespace Cerberus_CMD
                     Console.ResetColor();
                     Console.WriteLine(" \n-----------------\n");
 
-                    // Start auto server ping/backup timer
-                    AutoPingTimer = new System.Timers.Timer(1800000); //600000ms = 10 min, 1200000 = 20 min, 1800000 = 30 min, 3600000 = 1 hr
-                    AutoPingTimer.Elapsed += new ElapsedEventHandler(AutoPingTimer_Elapsed);
-                    AutoPingTimer.Start();
+                    if (serverPing)
+                    {
+                        // Start auto server ping/backup timer
+                        AutoPingTimer = new System.Timers.Timer(1800000); //600000ms = 10 min, 1200000 = 20 min, 1800000 = 30 min, 3600000 = 1 hr
+                        AutoPingTimer.Elapsed += new ElapsedEventHandler(AutoPingTimer_Elapsed);
+                        AutoPingTimer.Start();
 
-                    ServerStatus();
+                        ServerStatus();
+                    }
                 }
                 catch
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.Write("\nConnection failed! ");
-                    Console.WriteLine("Is there another client already open?");
+                    Console.WriteLine("Is there a client already open?");
                     Console.ResetColor();
                     Console.ReadLine();
                 }
             });
         }
-        private static void JailTimer_Elapsed(object sender, ElapsedEventArgs e)
-        {
-            JailTimer.Stop();
-
-            // Vote failed
-            if (Democracy > 0)
-            {
-                Console.WriteLine("Vote to jail " + tokick.Name + " failed.");
-                lastchannel.SendMessage("Arrest failed. Not enough users cared.");
-            }
-
-            JailTimerRunning = false;
-            VoteKickInProgress = false;
-            VotedUsers = null;
-        }
-
+        
         // Vote to kick timer ended
         private static void KickTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
@@ -573,16 +629,6 @@ namespace Cerberus_CMD
             VotedUsers = null;
         }
 
-        // Role adjust timer ended
-        private static void RoleAdjustTimer_Elapsed(object sender, ElapsedEventArgs e)
-        {
-            var voiceChannel = client.FindServers("|🚷|");
-
-            // Apply the noob role and stop timer
-            tojail.AddRoles(_roles[noobidx]);
-            RoleAdjustTimer.Stop();
-        }
-
         // Ping servers after timer has elapsed
         private static void AutoPingTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
@@ -591,6 +637,8 @@ namespace Cerberus_CMD
 
         private static void ServerStatus()
         {
+            Console.WriteLine("Checking severs...\n");
+
             TcpClient MinecraftServer = new TcpClient();
             TcpClient StarboundServer = new TcpClient();
 
