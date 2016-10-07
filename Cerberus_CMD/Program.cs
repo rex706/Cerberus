@@ -504,13 +504,13 @@ namespace Cerberus_CMD
                // User joined a voice channel after not being previously connected to any.
                if (e.Before.VoiceChannel == null && e.After.VoiceChannel != null)
                {
-                   Console.WriteLine(e.After.Name.ToString() + " joined.\n");
+                   Console.WriteLine(e.After.Name.ToString() + " joined " + e.After.VoiceChannel.Name.ToString() + "\n");
 
                    if (logChat)
                    {
                        using (StreamWriter file = File.AppendText("chat_log.txt"))
                        {
-                           file.WriteLine(e.After.Name.ToString() + " joined.");
+                           file.WriteLine(e.After.Name.ToString() + " joined " + e.After.VoiceChannel.Name.ToString() + "\n");
                        }
                    }
                    
