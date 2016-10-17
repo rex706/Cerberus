@@ -39,9 +39,10 @@ namespace Cerberus_CMD
 
         private static bool logChat = false;
         private static bool serverPing = false;
-
+        private static bool safeSearch = false;
         private static bool logUsers = false;
         private static HashSet<string> userSet;
+        private static HashSet<string> blackList;
 
         static void Main(string[] args)
         {
@@ -76,6 +77,11 @@ namespace Cerberus_CMD
                         serverPing = true;
                         Console.WriteLine("[server pinging enabled]");
                     }
+                    if (arg == "-safe")
+                    {
+                        safeSearch = true;
+                        Console.WriteLine("[safe search enabled]");
+                    }
                 }
             }
 
@@ -85,11 +91,10 @@ namespace Cerberus_CMD
 
             client = new DiscordClient();
 
-            // Set up events
-            Console.WriteLine("Defining Events");
-
             userSet = new HashSet<string>();
+            blackList = new HashSet<string>();
 
+            // Load user names text file
             if (!File.Exists("user_names.txt"))
             {
                 File.CreateText("user_names.txt");
@@ -102,7 +107,27 @@ namespace Cerberus_CMD
                 {
                     userSet.Add(line);
                 }
+                file.Close();
             }
+
+            // Load black listed users text file
+            if (!File.Exists("black_list.txt"))
+            {
+                File.CreateText("black_list.txt");
+            }
+            else
+            {
+                StreamReader file = new StreamReader("black_list.txt");
+                string line;
+                while ((line = file.ReadLine()) != null)
+                {
+                    blackList.Add(line);
+                }
+                file.Close();
+            }
+
+            // Set up events
+            Console.WriteLine("Defining Events");
 
             client.UsingAudio(x => // Opens an AudioConfigBuilder so we can configure our AudioService
             {
@@ -111,6 +136,66 @@ namespace Cerberus_CMD
 
             client.MessageReceived += (sender, e) => // Channel message has been received
             {
+                // Check if user is on the Cerberus black list
+                if (blackList.Contains(e.User.ToString()))
+                {
+                    e.User.SendMessage("You have been **black listed** from using Cerberus commands. Sorry for the inconvenience!");
+                    return;
+                }
+
+                if (!e.User.IsBot && e.Message.Text.Contains("!blacklist"))
+                {
+                    IEnumerable<Role> userRoles = e.User.Roles;
+
+                    bool hasPermission = false;
+                    User toBlackList = null;
+
+                    foreach (Role role in userRoles)
+                    {
+                        if (role.Name == "Mod" || role.Name == "Admin")
+                        {
+                            hasPermission = true;
+                            break;
+                        }
+                    }
+
+                    if (hasPermission)
+                    {
+                        string[] blackListUser = e.Message.Text.Split(' ');
+                        try
+                        {
+                            toBlackList = e.Server.GetUser(blackListUser[1], ushort.Parse(blackListUser[2]));
+                        }
+                        catch
+                        {
+                        }
+                        if (toBlackList == null)
+                        {
+                            e.Channel.SendMessage("Invalid user!");
+                        }
+                        else
+                        {
+                            if (!File.Exists("black_list.txt"))
+                            {
+                                File.CreateText("black_list.txt");
+                            }
+
+                            using (StreamWriter file = File.AppendText("black_list.txt"))
+                            {
+                                file.WriteLine(toBlackList.ToString());
+                            } 
+
+                            blackList.Add(toBlackList.ToString());
+                            e.Channel.SendMessage(toBlackList.Mention + " has been blacklisted from Cerberus by " + e.User.Name);
+                            Console.WriteLine(toBlackList.ToString() + " has been blacklisted from Cerberus by " + e.User.Name);
+                        }
+                    }
+                    else
+                    {
+                        e.User.SendMessage("You do not have permission to use that command!");
+                    }
+                }
+
                 if (!e.User.IsBot || e.Message.Text.Contains(errorMsg))
                 {
                     if (e.Message.Attachments.Length > 0)
@@ -136,6 +221,8 @@ namespace Cerberus_CMD
                                 {
                                     file.WriteLine(e.User.Name + ": " + e.Message.Text);
                                 }
+
+                                file.Close();
                             }
                         }
                         else
@@ -150,6 +237,8 @@ namespace Cerberus_CMD
                                 {
                                     file.WriteLine(e.User.Name + ": " + e.Message.Text);
                                 }
+
+                                file.Close();
                             }
                         }
                     }
@@ -161,11 +250,12 @@ namespace Cerberus_CMD
                     "!cat -------- random cat picture.\n" +
                     "!dog -------- random dog picture.\n" +
                     "!tits -------- show me the money!\n" +
-                    "!gimme\\!find [search phrase] - get random image from search phrase.\n" + 
+                    "!gimme\\!find [search phrase] - get random image from search phrase.\n" +
                     "!region ----- current Discord region.\n" +
                     "!minecraft - minecraft server status.\n" +
                     "!starbound - starbound server status.\n" +
-                    "!kick [username] [discriminator] - vote to kick another user.");
+                    "!kick [username] [discriminator] - vote to kick another user.\n" +
+                    "!blacklist [username] [discriminator] - blacklist a user from Cerberus. (mod only)");
 
                     // Because this is a public message, the bot should send a message to the channel the message was received.
                 }
@@ -435,6 +525,11 @@ namespace Cerberus_CMD
 
                             if (plural)
                                 e.Channel.SendMessage("I found " + query + "!");
+                            else if(query[0] == 'a' || query[0] == 'e' || query[0] == 'i' || query[0] == 'o' || query[0] == 'u'
+                            || query[0] == 'A' || query[0] == 'E' || query[0] == 'I' || query[0] == 'O' || query[0] == 'U')
+                            {
+                                e.Channel.SendMessage("I found an " + query + "!");
+                            }
                             else
                                 e.Channel.SendMessage("I found a " + query + "!");
 
@@ -504,13 +599,13 @@ namespace Cerberus_CMD
                // User joined a voice channel after not being previously connected to any.
                if (e.Before.VoiceChannel == null && e.After.VoiceChannel != null)
                {
-                   Console.WriteLine(e.After.Name.ToString() + " joined " + e.After.VoiceChannel.Name.ToString() + "\n");
+                   Console.WriteLine(e.After.Name.ToString() + " joined " + e.After.VoiceChannel.Name.ToString() + ".\n");
 
                    if (logChat)
                    {
                        using (StreamWriter file = File.AppendText("chat_log.txt"))
                        {
-                           file.WriteLine(e.After.Name.ToString() + " joined " + e.After.VoiceChannel.Name.ToString() + "\n");
+                           file.WriteLine(e.After.Name.ToString() + " joined " + e.After.VoiceChannel.Name.ToString() + ".\n");
                        }
                    }
                    
@@ -541,7 +636,7 @@ namespace Cerberus_CMD
                    }
                }
 
-               if (e.After.VoiceChannel.Name == "AFK")
+               if (e.Before.VoiceChannel != null && e.After.VoiceChannel != null && e.Before.VoiceChannel.Name != "AFK" && e.After.VoiceChannel.Name == "AFK")
                {
                    Console.WriteLine(e.After.Name + " went afk.\n");
 
@@ -554,7 +649,7 @@ namespace Cerberus_CMD
                    }
                }
 
-               if (e.Before.VoiceChannel.Name == "AFK" && e.After.VoiceChannel.Name != "AFK" && e.After.VoiceChannel != null)
+               if (e.Before.VoiceChannel != null && e.After.VoiceChannel != null && e.Before.VoiceChannel.Name == "AFK" && e.After.VoiceChannel.Name != "AFK")
                {
                    Console.WriteLine(e.After.Name + " is no longer afk.\n");
 
@@ -744,8 +839,17 @@ namespace Cerberus_CMD
 
         private static string GetHtmlCode(string s)
         {
-            string url = "https://www.google.com/search?q=" + s + "&tbm=isch";
+            string url;
             string data = "";
+
+            if (safeSearch)
+            {
+                url = "https://www.google.com/search?q=" + s + "&safe=active&tbm=isch";
+            }
+            else
+            {
+                url = "https://www.google.com/search?q=" + s + "&tbm=isch";
+            }
 
             var request = (HttpWebRequest)WebRequest.Create(url);
             request.Accept = "text/html, application/xhtml+xml, */*";
