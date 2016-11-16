@@ -728,7 +728,7 @@ namespace Cerberus_CMD
                 try
                 {
                     // bot token
-                    await client.Connect("MjA2OTU1MjcwMzIzMTc1NDI2.CsC4VA.dc5Ecq5B3QCz0mpB5ugnL_YmJP4", TokenType.Bot);
+                    await client.Connect(BOT_TOKEN, TokenType.Bot);
                     client.SetGame(null);
 
                     // Done!
