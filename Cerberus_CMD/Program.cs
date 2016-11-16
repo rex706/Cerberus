@@ -11,7 +11,7 @@ using System.IO.Compression;
 using System.Reflection;
 
 namespace Cerberus_CMD
-{ 
+{
     class Program
     {
         private static DiscordClient client;
@@ -19,28 +19,30 @@ namespace Cerberus_CMD
         private static Channel lastchannel;
 
         private static string ServerIP = "50.89.243.222";
-        private static string LastSuccPing = "never";
+        private static string lastSuccessfulPing = "never";
 
-        private static System.Timers.Timer KickTimer;
-        private static bool KickTimerRunning = false;
-        private static HashSet<string> VotedUsers;
+        private static System.Timers.Timer kickTimer;
+        private static bool kickTimerRunning = false;
+        private static HashSet<string> votedUsers;
 
-        private static System.Timers.Timer AutoPingTimer;
+        private static System.Timers.Timer autoPingTimer;
 
-        private static int NumUsers;
-        private static int Democracy;
+        private static int numUsers;
+        private static int democracy;
 
-        private static string[] KickMessage;
+        private static string[] kickMessage;
         private static User tokick;
 
-        private static bool VoteKickInProgress = false;
+        private static bool voteKickInProgress = false;
 
         private static string errorMsg = "Something went wrong :confused: Please try again!";
+        private static string prevMsg;
 
         private static bool logChat = false;
         private static bool serverPing = false;
-        private static bool safeSearch = false;
+        private static bool safeSearch = true;
         private static bool logUsers = false;
+
         private static HashSet<string> userSet;
         private static HashSet<string> blackList;
 
@@ -65,24 +67,37 @@ namespace Cerberus_CMD
                     if (arg == "-chat")
                     {
                         logChat = true;
-                        Console.WriteLine("[chat logging enabled]");
                     }
                     if (arg == "-users")
                     {
                         logUsers = true;
-                        Console.WriteLine("[user logging enabled]");
                     }
                     if (arg == "-ping")
                     {
                         serverPing = true;
-                        Console.WriteLine("[server pinging enabled]");
                     }
                     if (arg == "-safe")
                     {
                         safeSearch = true;
-                        Console.WriteLine("[safe search enabled]");
                     }
                 }
+            }
+
+            if (logChat)
+            {
+                Console.WriteLine("[chat logging enabled]");
+            }
+            if (logUsers)
+            {
+                Console.WriteLine("[user logging enabled]");
+            }
+            if (serverPing)
+            {
+                Console.WriteLine("[server pinging enabled]");
+            }
+            if (safeSearch)
+            {
+                Console.WriteLine("[safe search enabled]");
             }
 
             Console.WriteLine();
@@ -134,16 +149,43 @@ namespace Cerberus_CMD
                 x.Mode = AudioMode.Outgoing; // Tells the AudioService that we will only be sending audio
             });
 
-            client.MessageReceived += (sender, e) => // Channel message has been received
+            client.MessageDeleted += (sender, e) =>
+            {
+                Console.Write("Deleted message: ");
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.WriteLine(e.Message.Text + "\n");
+                Console.ResetColor();
+            };
+
+            client.MessageReceived += async (sender, e) => // Channel message has been received
             {
                 // Check if user is on the Cerberus black list
                 if (blackList.Contains(e.User.ToString()))
                 {
-                    e.User.SendMessage("You have been **black listed** from using Cerberus commands. Sorry for the inconvenience!");
+                    await e.User.SendMessage("You have been black listed from using Cerberus commands. Sorry for the inconvenience!");
                     return;
                 }
 
-                if (!e.User.IsBot && e.Message.Text.Contains("!blacklist"))
+                if (!e.User.IsBot && e.Message.Text == "!blacklist")
+                {
+                    if (blackList.Count == 0)
+                    {
+                        await e.Channel.SendMessage("There are no currently blacklisted users.");
+                    }
+                    else
+                    {
+                        string blUsers = "";
+
+                        foreach (string blUser in blackList)
+                        {
+                            blUsers += blUser + "   ";
+                        }
+
+                        await e.Channel.SendMessage("Blacklisted users: " + blUsers);
+                    }
+                }
+
+                if (!e.User.IsBot && e.Message.Text.Contains("!blacklist") && e.Message.Text.Length > 14)
                 {
                     IEnumerable<Role> userRoles = e.User.Roles;
 
@@ -171,7 +213,7 @@ namespace Cerberus_CMD
                         }
                         if (toBlackList == null)
                         {
-                            e.Channel.SendMessage("Invalid user!");
+                            await e.Channel.SendMessage("Invalid user!");
                         }
                         else
                         {
@@ -183,16 +225,16 @@ namespace Cerberus_CMD
                             using (StreamWriter file = File.AppendText("black_list.txt"))
                             {
                                 file.WriteLine(toBlackList.ToString());
-                            } 
+                            }
 
                             blackList.Add(toBlackList.ToString());
-                            e.Channel.SendMessage(toBlackList.Mention + " has been blacklisted from Cerberus by " + e.User.Name);
-                            Console.WriteLine(toBlackList.ToString() + " has been blacklisted from Cerberus by " + e.User.Name);
+                            await e.Channel.SendMessage(toBlackList.Mention + " has been blacklisted from Cerberus by " + e.User.Name);
+                            Console.WriteLine(toBlackList.ToString() + " has been blacklisted from Cerberus by " + e.User.Name + "\n");
                         }
                     }
                     else
                     {
-                        e.User.SendMessage("You do not have permission to use that command!");
+                        await e.User.SendMessage("You do not have permission to use that command!");
                     }
                 }
 
@@ -243,18 +285,19 @@ namespace Cerberus_CMD
                         }
                     }
                 }
-                
+
                 if (e.Message.Text == "!help")
                 {
-                    e.Channel.SendMessage("\n\n```css\n#UserCommands```\n" +
+                    await e.Channel.SendMessage("\n\n```css\n#UserCommands```\n" +
                     "!cat -------- random cat picture.\n" +
                     "!dog -------- random dog picture.\n" +
                     "!tits -------- show me the money!\n" +
-                    "!gimme\\!find [search phrase] - get random image from search phrase.\n" +
+                    "!find [search phrase] - get random image from search phrase.\n" +
                     "!region ----- current Discord region.\n" +
                     "!minecraft - minecraft server status.\n" +
                     "!starbound - starbound server status.\n" +
                     "!kick [username] [discriminator] - vote to kick another user.\n" +
+                    "!blacklist - list the blacklisted users, if any.\n" +
                     "!blacklist [username] [discriminator] - blacklist a user from Cerberus. (mod only)");
 
                     // Because this is a public message, the bot should send a message to the channel the message was received.
@@ -273,15 +316,15 @@ namespace Cerberus_CMD
                         string filetype = s.Substring(pIdx);
                         string filename = "cat.png";
 
-                        if(filetype.Contains(".gif"))
+                        if (filetype.Contains(".gif"))
                         {
                             filename = "cat.gif";
                         }
 
                         string cat = s.Substring(pFrom, pTo - pFrom);
                         webclient.DownloadFile("http://random.cat/i/" + cat, filename);
-                        e.Channel.SendMessage("meow!");
-                        e.Channel.SendFile(filename);
+                        await e.Channel.SendMessage("meow!");
+                        await e.Channel.SendFile(filename);
                     }
                 }
                 if (e.Message.Text == "!dog")
@@ -294,8 +337,8 @@ namespace Cerberus_CMD
                         s = webclient.DownloadString("http://random.dog/woof");
                         string dog = s;
                         webclient.DownloadFile("http://random.dog/" + dog, "dog.png");
-                        e.Channel.SendMessage("woof!");
-                        e.Channel.SendFile("dog.png");
+                        await e.Channel.SendMessage("woof!");
+                        await e.Channel.SendFile("dog.png");
                     }
                 }
                 if (e.Message.Text == "!tits")
@@ -306,13 +349,13 @@ namespace Cerberus_CMD
                     using (WebClient webclient = new WebClient())
                     {
                         webclient.DownloadFile("https://upload.wikimedia.org/wikipedia/commons/8/86/GreatTit002.jpg", "tits.png");
-                        e.Channel.SendMessage("a nice natural pair of tits!");
-                        e.Channel.SendFile("tits.png");
+                        await e.Channel.SendMessage("a nice natural pair of tits!");
+                        await e.Channel.SendFile("tits.png");
                     }
                 }
                 if (e.Message.Text == "!minecarft")
                 {
-                    e.Channel.SendMessage("Did you misspell 'minecraft'?");
+                    await e.Channel.SendMessage("Did you misspell 'minecraft'?");
                 }
 
                 // Ping minecraft server
@@ -321,7 +364,7 @@ namespace Cerberus_CMD
                     if (File.Exists("pings.ini"))
                     {
                         var pings = new IniFile("pings.ini");
-                        LastSuccPing = pings.Read("Minecraft", "Pings");
+                        lastSuccessfulPing = pings.Read("Minecraft", "Pings");
                     }
 
                     TcpClient MinecraftServer = new TcpClient();
@@ -329,15 +372,15 @@ namespace Cerberus_CMD
 
                     if (!MinecraftServer.ConnectAsync(ServerIP, 25565).Wait(3500))
                     {
-                        e.Channel.SendMessage("Minecraft Server \n\n```css\n:OFFLINE``` \nLast successful ping: **" + LastSuccPing + "**\n\nCould just be ping issue? Try again in a few seconds.\nIf connection continues to fail, try again later.");
+                        await e.Channel.SendMessage("Minecraft Server \n\n```css\n:OFFLINE``` \nLast successful ping: **" + lastSuccessfulPing + "**\n\nCould just be ping issue? Try again in a few seconds.\nIf connection continues to fail, try again later.");
                     }
                     else
                     {
-                        e.Channel.SendMessage("Minecraft Server \n\n```css\n.:ONLINE  -  " + ServerIP + ":25565```");
+                        await e.Channel.SendMessage("Minecraft Server \n\n```css\n.:ONLINE  -  " + ServerIP + ":25565```");
 
                         var pings = new IniFile("pings.ini");
-                        LastSuccPing = DateTime.Now.ToString();
-                        pings.Write("Minecraft", LastSuccPing, "Pings");
+                        lastSuccessfulPing = DateTime.Now.ToString();
+                        pings.Write("Minecraft", lastSuccessfulPing, "Pings");
                     }
                 }
 
@@ -347,107 +390,107 @@ namespace Cerberus_CMD
                     if (File.Exists("pings.ini"))
                     {
                         var pings = new IniFile("pings.ini");
-                        LastSuccPing = pings.Read("Starbound", "Pings");
+                        lastSuccessfulPing = pings.Read("Starbound", "Pings");
 
-                        if (LastSuccPing == "")
-                            LastSuccPing = "never";
+                        if (lastSuccessfulPing == "")
+                            lastSuccessfulPing = "never";
                     }
 
                     TcpClient StarboundServer = new TcpClient();
 
                     if (!StarboundServer.ConnectAsync(ServerIP, 21025).Wait(3500))
                     {
-                        e.Channel.SendMessage("Starbound Server \n\n```css\n:OFFLINE``` \nLast successful ping: **" + LastSuccPing + "**\n\nCould just be ping issue? Try again in a few seconds.\nIf connection continues to fail, try again later.");
+                        await e.Channel.SendMessage("Starbound Server \n\n```css\n:OFFLINE``` \nLast successful ping: **" + lastSuccessfulPing + "**\n\nCould just be ping issue? Try again in a few seconds.\nIf connection continues to fail, try again later.");
                     }
                     else
                     {
-                        e.Channel.SendMessage("Starbound Server \n\n```css\n.:ONLINE  -  " + ServerIP + ":21025```");
+                        await e.Channel.SendMessage("Starbound Server \n\n```css\n.:ONLINE  -  " + ServerIP + ":21025```");
 
                         var pings = new IniFile("pings.ini");
-                        LastSuccPing = DateTime.Now.ToString();
-                        pings.Write("Starbound", LastSuccPing, "Pings");
+                        lastSuccessfulPing = DateTime.Now.ToString();
+                        pings.Write("Starbound", lastSuccessfulPing, "Pings");
                     }
                 }
 
                 // Make sure only one vote can be in progress at a time
-                if (e.Message.Text.Contains("!kick") && !e.User.IsBot && VoteKickInProgress == true)
+                if (e.Message.Text.Contains("!kick") && !e.User.IsBot && voteKickInProgress == true)
                 {
-                    e.Channel.SendMessage("Another vote is in progress! Please try again after voting has finished.");
+                    await e.Channel.SendMessage("Another vote is in progress! Please try again after voting has finished.");
                 }
-                
+
                 // Vote to kick
-                if (e.Message.Text.Contains("!kick") && !e.User.IsBot && VoteKickInProgress == false)
+                if (e.Message.Text.Contains("!kick") && !e.User.IsBot && voteKickInProgress == false)
                 {
 
-                    KickMessage = e.Message.Text.Split(' ');
+                    kickMessage = e.Message.Text.Split(' ');
                     try
                     {
-                        tokick = e.Server.GetUser(KickMessage[1], ushort.Parse(KickMessage[2]));
+                        tokick = e.Server.GetUser(kickMessage[1], ushort.Parse(kickMessage[2]));
                     }
                     catch
                     {
                     }
                     if (tokick == null)
                     {
-                        e.Channel.SendMessage("Invalid user!");
+                        await e.Channel.SendMessage("Invalid user!");
                     }
                     else
                     {
                         Console.WriteLine(e.User.Name + " initiated vote to kick " + tokick.Name);
 
-                        VoteKickInProgress = true;
+                        voteKickInProgress = true;
                         lastchannel = e.Channel;
-                        NumUsers = e.Server.UserCount; //e.Sever.Users.Count();
-                        Democracy = 5; //(NumUsers / 6);
+                        numUsers = e.Server.UserCount; //e.Sever.Users.Count();
+                        democracy = 5; //(numUsers / 6);
 
-                        if (Democracy == 1)
-                            e.Channel.SendMessage("Vote to kick " + tokick.Mention + " initiated for 2 minutes! **" + Democracy + "** vote required.\n\n```Type !yes to kick.```");
+                        if (democracy == 1)
+                            await e.Channel.SendMessage("Vote to kick " + tokick.Mention + " initiated for 2 minutes! **" + democracy + "** vote required.\n\n```Type !yes to kick.```");
                         else
-                            e.Channel.SendMessage("Vote to kick " + tokick.Mention + " initiated for 2 minutes! **" + Democracy + "** votes required.\n\n```Type !yes to kick.```");
+                            await e.Channel.SendMessage("Vote to kick " + tokick.Mention + " initiated for 2 minutes! **" + democracy + "** votes required.\n\n```Type !yes to kick.```");
 
-                        KickTimer = new System.Timers.Timer(120000);
-                        KickTimer.Elapsed += new ElapsedEventHandler(KickTimer_Elapsed);
-                        KickTimer.Start();
-                        KickTimerRunning = true;
+                        kickTimer = new System.Timers.Timer(120000);
+                        kickTimer.Elapsed += new ElapsedEventHandler(kickTimer_Elapsed);
+                        kickTimer.Start();
+                        kickTimerRunning = true;
 
-                        VotedUsers = new HashSet<string>();
+                        votedUsers = new HashSet<string>();
                     }
                 }
 
-                if (e.Message.Text == "!yes" && KickTimerRunning == true && !VotedUsers.Contains(e.User.Name))
+                if (e.Message.Text == "!yes" && kickTimerRunning == true && !votedUsers.Contains(e.User.Name))
                 {
-                    Democracy -= 1;
+                    democracy -= 1;
 
-                    if (Democracy == 1)
+                    if (democracy == 1)
                     {
-                        e.Channel.SendMessage("Vote recieved from " + e.User.Name + "! **" + Democracy + "** vote remaining. ");
-                        VotedUsers.Add(e.User.Name);
+                        await e.Channel.SendMessage("Vote recieved from " + e.User.Name + "! **" + democracy + "** vote remaining. ");
+                        votedUsers.Add(e.User.Name);
                     }
                     else
                     {
-                        e.Channel.SendMessage("Vote recieved from " + e.User.Name + "! **" + Democracy + "** votes remaining.");
-                        VotedUsers.Add(e.User.Name);
+                        await e.Channel.SendMessage("Vote recieved from " + e.User.Name + "! **" + democracy + "** votes remaining.");
+                        votedUsers.Add(e.User.Name);
                     }
-                    if (Democracy == 0)
+                    if (democracy == 0)
                     {
                         // Kick user
-                        if (KickTimerRunning == true)
+                        if (kickTimerRunning == true)
                         {
                             Console.WriteLine("Kicking " + tokick.Name + "...");
-                            e.Channel.SendMessage("Vote passed! Kicking " + tokick.Name + "...  **Democracy!**");
-                            tokick.Kick();
+                            await e.Channel.SendMessage("Vote passed! Kicking " + tokick.Name + "...  **democracy!**");
+                            await tokick.Kick();
 
-                            KickTimer.Stop();
-                            KickTimerRunning = false;
-                            VotedUsers = null;
+                            kickTimer.Stop();
+                            kickTimerRunning = false;
+                            votedUsers = null;
 
-                            VoteKickInProgress = false;
+                            voteKickInProgress = false;
                         }
                     }
                 }
 
                 // Random image from search phrase
-                if ((e.Message.Text.Contains("!gimme") || e.Message.Text.Contains("!find") || e.Message.Text.Contains("!search")) && !e.User.IsBot)
+                if ((e.Message.Text.Contains("!find") || e.Message.Text.Contains("!Find") || e.Message.Text.Contains("!FIND") || e.Message.Text.Contains("!search") || e.Message.Text.Contains("!gimme")) && e.Message.Text[0].Equals('!') && !e.User.IsBot)
                 {
                     string[] phrase = e.Message.Text.Split(' ');
                     string query = null;
@@ -456,7 +499,7 @@ namespace Cerberus_CMD
                     if (phrase.Length > 2)
                     {
                         for (int i = 1; i < phrase.Length; i++)
-                            
+
                             if (i == phrase.Length - 1)
                                 query += phrase[i];
                             else
@@ -475,6 +518,12 @@ namespace Cerberus_CMD
                     string html = GetHtmlCode(query);
                     List<string> urls = GetUrls(html);
                     var rnd = new Random();
+
+                    if (urls.Count == 0)
+                    {
+                        await e.Channel.SendMessage("I couldn't find '" + query + "' :confused:");
+                        return;
+                    }
 
                     int random = rnd.Next(0, urls.Count - 1);
                     string luckyUrl = urls[random];
@@ -524,16 +573,16 @@ namespace Cerberus_CMD
                             Console.ResetColor();
 
                             if (plural)
-                                e.Channel.SendMessage("I found " + query + "!");
-                            else if(query[0] == 'a' || query[0] == 'e' || query[0] == 'i' || query[0] == 'o' || query[0] == 'u'
+                                await e.Channel.SendMessage("I found " + query + "!");
+                            else if (query[0] == 'a' || query[0] == 'e' || query[0] == 'i' || query[0] == 'o' || query[0] == 'u'
                             || query[0] == 'A' || query[0] == 'E' || query[0] == 'I' || query[0] == 'O' || query[0] == 'U')
                             {
-                                e.Channel.SendMessage("I found an " + query + "!");
+                                await e.Channel.SendMessage("I found an " + query + "!");
                             }
                             else
-                                e.Channel.SendMessage("I found a " + query + "!");
+                                await e.Channel.SendMessage("I found a " + query + "!");
 
-                            e.Channel.SendFile("random" + fileType);
+                            await e.Channel.SendFile("random" + fileType);
 
                             break;
                         }
@@ -563,7 +612,7 @@ namespace Cerberus_CMD
                             }
 
                             if (attempt == 4)
-                                e.Channel.SendMessage(errorMsg);
+                                await e.Channel.SendMessage(errorMsg);
                         }
                     }
                 }
@@ -571,8 +620,10 @@ namespace Cerberus_CMD
                 // Echo current discord region
                 if (e.Message.Text == "!region")
                 {
-                    e.Channel.SendMessage("Current Discord region set to `" + e.Server.Region.Name + "`");
+                    await e.Channel.SendMessage("Current Discord region set to `" + e.Server.Region.Name + "`");
                 }
+
+                prevMsg = e.Message.Text.ToString();
             };
 
             // This sends a message to every new channel on the server
@@ -677,7 +728,7 @@ namespace Cerberus_CMD
                 try
                 {
                     // bot token
-                    await client.Connect("BOT_TOKEN", TokenType.Bot);
+                    await client.Connect("MjA2OTU1MjcwMzIzMTc1NDI2.CsC4VA.dc5Ecq5B3QCz0mpB5ugnL_YmJP4", TokenType.Bot);
                     client.SetGame(null);
 
                     // Done!
@@ -689,9 +740,9 @@ namespace Cerberus_CMD
                     if (serverPing)
                     {
                         // Start auto server ping/backup timer
-                        AutoPingTimer = new System.Timers.Timer(1800000); //600000ms = 10 min, 1200000 = 20 min, 1800000 = 30 min, 3600000 = 1 hr
-                        AutoPingTimer.Elapsed += new ElapsedEventHandler(AutoPingTimer_Elapsed);
-                        AutoPingTimer.Start();
+                        autoPingTimer = new System.Timers.Timer(1800000); //600000ms = 10 min, 1200000 = 20 min, 1800000 = 30 min, 3600000 = 1 hr
+                        autoPingTimer.Elapsed += new ElapsedEventHandler(autoPingTimer_Elapsed);
+                        autoPingTimer.Start();
 
                         ServerStatus();
                     }
@@ -706,26 +757,26 @@ namespace Cerberus_CMD
                 }
             });
         }
-        
+
         // Vote to kick timer ended
-        private static void KickTimer_Elapsed(object sender, ElapsedEventArgs e)
+        private static void kickTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
-            KickTimer.Stop();
+            kickTimer.Stop();
 
             // Vote failed
-            if (Democracy > 0)
+            if (democracy > 0)
             {
                 Console.WriteLine("Vote to kick " + tokick.Name + " failed.");
                 lastchannel.SendMessage("Kick failed. Not enough users voted.");
             }
 
-            KickTimerRunning = false;
-            VoteKickInProgress = false;
-            VotedUsers = null;
+            kickTimerRunning = false;
+            voteKickInProgress = false;
+            votedUsers = null;
         }
 
         // Ping servers after timer has elapsed
-        private static void AutoPingTimer_Elapsed(object sender, ElapsedEventArgs e)
+        private static void autoPingTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
             ServerStatus();
         }
@@ -737,7 +788,7 @@ namespace Cerberus_CMD
             TcpClient MinecraftServer = new TcpClient();
             TcpClient StarboundServer = new TcpClient();
 
-            LastSuccPing = DateTime.Now.ToString();
+            lastSuccessfulPing = DateTime.Now.ToString();
 
             bool mOnline = false;
             bool sOnline = false;
@@ -747,7 +798,7 @@ namespace Cerberus_CMD
             {
                 mOnline = true;
                 var pings = new IniFile("pings.ini");
-                pings.Write("Minecraft", LastSuccPing, "Pings");
+                pings.Write("Minecraft", lastSuccessfulPing, "Pings");
 
                 int BackupCounter = 0;
 
@@ -786,14 +837,14 @@ namespace Cerberus_CMD
             {
                 sOnline = true;
                 var pings = new IniFile("pings.ini");
-                pings.Write("Starbound", LastSuccPing, "Pings");
+                pings.Write("Starbound", lastSuccessfulPing, "Pings");
             }
 
             // Print status to console
             if (mOnline)
             {
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Minecraft Server ONLINE  -  " + ServerIP + ":25565  -  " + LastSuccPing);
+                Console.WriteLine("Minecraft Server ONLINE  -  " + ServerIP + ":25565  -  " + lastSuccessfulPing);
             }
             else
             {
@@ -803,7 +854,7 @@ namespace Cerberus_CMD
             if (sOnline)
             {
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Starbound Server ONLINE  -  " + ServerIP + ":21025  -  " + LastSuccPing);
+                Console.WriteLine("Starbound Server ONLINE  -  " + ServerIP + ":21025  -  " + lastSuccessfulPing);
             }
             else
             {
