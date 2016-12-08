@@ -46,6 +46,8 @@ namespace Cerberus_CMD
         private static HashSet<string> userSet;
         private static HashSet<string> blackList;
 
+        private static IEnumerable<Role> serverRoles;
+
         static void Main(string[] args)
         {
             // Cerberus logo and version
@@ -214,6 +216,7 @@ namespace Cerberus_CMD
                         if (toBlackList == null)
                         {
                             await e.Channel.SendMessage("Invalid user!");
+                            return;
                         }
                         else
                         {
@@ -238,16 +241,98 @@ namespace Cerberus_CMD
                     }
                 }
 
+                // GIVE user access to Muffin's CSGO channel
+                if (!e.User.IsBot && e.Message.Text.Contains("!shield"))
+                {
+                    string [] message = e.Message.Text.Split(' ');
+                    User newMember = null;
+
+                    try { newMember = e.Server.GetUser(message[1], ushort.Parse(message[2])); }
+                    catch { await e.User.SendMessage("Command format: !shield [username] [discriminator]"); }
+
+                    if (newMember == null)
+                    {
+                        await e.Channel.SendMessage("Invalid user!\nCommand format: !shield [username] [discriminator]");
+                        return;
+                    }
+
+                    IEnumerable<Role> serverRoles = e.Server.Roles;
+                    IEnumerable<Role> userRoles = e.User.Roles;
+                    Role[] newRoles = new Role[1];
+                    Role shieldRole = null;
+                    Role modRole = null;
+
+                    // Get server roles
+                    foreach (Role role in serverRoles)
+                    {
+                        if (role.Name == "Shield")
+                        {
+                            newRoles[0] = role;
+                            shieldRole = role;
+                        }
+                        if (role.Name == "Mod")
+                            modRole = role;
+                    }
+
+                    // Apply 'Shield' role to target user.
+                    if (e.User.Name == "UselessMuffin" && e.User.Discriminator == 1335 || e.User.HasRole(shieldRole) || e.User.HasRole(modRole))
+                    {
+                        await newMember.AddRoles(newRoles);
+                        await e.Channel.SendMessage("'Shield' role given to " + newMember.Name + "!\n "+ newMember.Name + " now has access to 'CSGO Shield Esports'.");
+                        return;
+                    }
+
+                    await e.User.SendMessage("You do not have permission to use that command.");
+                }
+
+                // TAKE AWAY user access to Muffin's CSGO channel
+                if (!e.User.IsBot && e.Message.Text.Contains("!rshield"))
+                {
+                    string[] message = e.Message.Text.Split(' ');
+                    User oldMember = null;
+
+                    try { oldMember = e.Server.GetUser(message[1], ushort.Parse(message[2])); }
+                    catch { await e.User.SendMessage("Command format: !shield [username] [discriminator]"); }
+
+                    if (oldMember == null)
+                    {
+                        await e.Channel.SendMessage("Invalid user!\nCommand format: !shield [username] [discriminator]");
+                        return;
+                    }
+
+                    IEnumerable<Role> serverRoles = e.Server.Roles;
+                    IEnumerable<Role> userRoles = e.User.Roles;
+                    Role[] newRoles = new Role[1];
+                    Role modRole = null;
+
+                    // Get server roles
+                    foreach (Role role in serverRoles)
+                    {
+                        if (role.Name == "Shield")
+                            newRoles[0] = role;
+                
+                        if (role.Name == "Mod")
+                            modRole = role;
+                    }
+
+                    // Remove 'Shield' role from target user.
+                    if (e.User.Name == "UselessMuffin" && e.User.Discriminator == 1335 || e.User.HasRole(modRole))
+                    {
+                        await oldMember.RemoveRoles(newRoles);
+                        await e.Channel.SendMessage("'Shield' role removed from " + oldMember.Name + ".\nAccess to 'CSGO Shield Esports' has been revoked.");
+                        return;
+                    }
+
+                    await e.User.SendMessage("You do not have permission to use that command.");
+                }
+
+                // Record to text file if not bot.
                 if (!e.User.IsBot || e.Message.Text.Contains(errorMsg))
                 {
                     if (e.Message.Attachments.Length > 0)
-                    {
                         Console.WriteLine(e.User.Name + ": [attachment] " + e.Message.Text + "\n");
-                    }
                     else
-                    {
                         Console.WriteLine(e.User.Name + ": " + e.Message.Text + "\n");
-                    }
 
                     if (logChat)
                     {
@@ -256,13 +341,9 @@ namespace Cerberus_CMD
                             using (StreamWriter file = File.CreateText("chat_log.txt"))
                             {
                                 if (e.Message.Attachments.Length > 0)
-                                {
                                     file.WriteLine(e.User.Name + ": [attachment] " + e.Message.Text);
-                                }
                                 else
-                                {
                                     file.WriteLine(e.User.Name + ": " + e.Message.Text);
-                                }
 
                                 file.Close();
                             }
@@ -272,13 +353,9 @@ namespace Cerberus_CMD
                             using (StreamWriter file = File.AppendText("chat_log.txt"))
                             {
                                 if (e.Message.Attachments.Length > 0)
-                                {
                                     file.WriteLine(e.User.Name + ": [attachment] " + e.Message.Text);
-                                }
                                 else
-                                {
                                     file.WriteLine(e.User.Name + ": " + e.Message.Text);
-                                }
 
                                 file.Close();
                             }
@@ -286,22 +363,23 @@ namespace Cerberus_CMD
                     }
                 }
 
+                // Display help menu.
                 if (e.Message.Text == "!help")
                 {
                     await e.Channel.SendMessage("\n\n```css\n#UserCommands```\n" +
-                    "!cat -------- random cat picture.\n" +
-                    "!dog -------- random dog picture.\n" +
-                    "!tits -------- show me the money!\n" +
-                    "!find [search phrase] - get random image from search phrase.\n" +
-                    "!region ----- current Discord region.\n" +
+                    "!cat - random picture of a cat.\n" +
+                    "!dog - random picture of a dog.\n" +
+                    "!tits - show me the money!\n" +
+                    "!find [search phrase] - random image from search phrase.\n" +
                     "!minecraft - minecraft server status.\n" +
                     "!starbound - starbound server status.\n" +
                     "!kick [username] [discriminator] - vote to kick another user.\n" +
                     "!blacklist - list the blacklisted users, if any.\n" +
-                    "!blacklist [username] [discriminator] - blacklist a user from Cerberus. (mod only)");
-
-                    // Because this is a public message, the bot should send a message to the channel the message was received.
+                    "!blacklist [username] [discriminator] - blacklist a user from Cerberus. (mod only)\n" +
+                    "!shield [username] [discriminator] - give user access to Shield Esports. (shield only)\n" +
+                    "!rshield [username] [discriminator] - revoke access to Shield Esports. (muffin only)");
                 }
+
                 if (e.Message.Text == "!cat")
                 {
                     Thread t = new Thread(new ParameterizedThreadStart(randomcat));
@@ -457,6 +535,7 @@ namespace Cerberus_CMD
                     }
                 }
 
+                // User voted yes to kick during timer.
                 if (e.Message.Text == "!yes" && kickTimerRunning == true && !votedUsers.Contains(e.User.Name))
                 {
                     democracy -= 1;
@@ -616,13 +695,6 @@ namespace Cerberus_CMD
                         }
                     }
                 }
-
-                // Echo current discord region
-                if (e.Message.Text == "!region")
-                {
-                    await e.Channel.SendMessage("Current Discord region set to `" + e.Server.Region.Name + "`");
-                }
-
                 prevMsg = e.Message.Text.ToString();
             };
 
