@@ -9,6 +9,7 @@ using System.Net.Sockets;
 using System.IO;
 using System.IO.Compression;
 using System.Reflection;
+using System.Text;
 
 namespace Cerberus_CMD
 {
@@ -176,14 +177,12 @@ namespace Cerberus_CMD
                     }
                     else
                     {
-                        string blUsers = "";
+                        StringBuilder blUsers = new StringBuilder();
 
                         foreach (string blUser in blackList)
-                        {
-                            blUsers += blUser + "   ";
-                        }
+                            blUsers.Append(blUser + "\n");
 
-                        await e.Channel.SendMessage("Blacklisted users: " + blUsers);
+                        await e.Channel.SendMessage("Blacklisted users: " + blackList.Count + " \n\n" + blUsers.ToString());
                     }
                 }
 
@@ -367,15 +366,16 @@ namespace Cerberus_CMD
                 if (e.Message.Text == "!help")
                 {
                     await e.Channel.SendMessage("\n\n```css\n#UserCommands```\n" +
+                    "*The number following the hashtag is a user's 'discriminator'.*\n\n" +
                     "!cat - random picture of a cat.\n" +
                     "!dog - random picture of a dog.\n" +
                     "!tits - show me the money!\n" +
-                    "!find [search phrase] - random image from search phrase.\n" +
-                    "!minecraft - minecraft server status.\n" +
-                    "!starbound - starbound server status.\n" +
+                    "!find [search phrase] - random image from search phrase.\n\n" +
                     "!kick [username] [discriminator] - vote to kick another user.\n" +
                     "!blacklist - list the blacklisted users, if any.\n" +
-                    "!blacklist [username] [discriminator] - blacklist a user from Cerberus. (mod only)\n" +
+                    "!blacklist [username] [discriminator] - blacklist a user from Cerberus. (mod only)\n\n" +
+                    "!minecraft - minecraft server status.\n" +
+                    "!starbound - starbound server status.\n\n" +
                     "!shield [username] [discriminator] - give user access to Shield Esports. (shield only)\n" +
                     "!rshield [username] [discriminator] - revoke access to Shield Esports. (muffin only)");
                 }
@@ -572,29 +572,30 @@ namespace Cerberus_CMD
                 if ((e.Message.Text.Contains("!find") || e.Message.Text.Contains("!Find") || e.Message.Text.Contains("!FIND") || e.Message.Text.Contains("!search") || e.Message.Text.Contains("!gimme")) && e.Message.Text[0].Equals('!') && !e.User.IsBot)
                 {
                     string[] phrase = e.Message.Text.Split(' ');
-                    string query = null;
                     bool plural = false;
+
+                    StringBuilder query = new StringBuilder();
 
                     if (phrase.Length > 2)
                     {
                         for (int i = 1; i < phrase.Length; i++)
 
                             if (i == phrase.Length - 1)
-                                query += phrase[i];
+                                query.Append(phrase[i]);
                             else
-                                query += phrase[i] + " ";
+                                query.Append(phrase[i]).Append(" ");
 
                         plural = true;
                     }
                     else
                     {
-                        query = phrase[1];
+                        query.Append(phrase[1]);
                     }
 
                     if (query[query.Length - 1].Equals('s'))
                         plural = true;
 
-                    string html = GetHtmlCode(query);
+                    string html = GetHtmlCode(query.ToString());
                     List<string> urls = GetUrls(html);
                     var rnd = new Random();
 
