@@ -37,17 +37,19 @@ namespace Cerberus_CMD
         private static bool voteKickInProgress = false;
 
         private static string errorMsg = "Something went wrong :confused: Please try again!";
-        private static string prevMsg;
 
         private static bool logChat = false;
         private static bool serverPing = false;
-        private static bool safeSearch = true;
+        private static bool safeSearch = false;
         private static bool logUsers = false;
+        private static bool antiSpam = false;
 
         private static HashSet<string> userSet;
         private static HashSet<string> blackList;
 
         private static IEnumerable<Role> serverRoles;
+
+        private static List<string> spamQueue = new List<string>(3);
 
         static void Main(string[] args)
         {
@@ -83,6 +85,10 @@ namespace Cerberus_CMD
                     {
                         safeSearch = true;
                     }
+                    if (arg == "-spam")
+                    {
+                        antiSpam = true;
+                    }
                 }
             }
 
@@ -101,6 +107,10 @@ namespace Cerberus_CMD
             if (safeSearch)
             {
                 Console.WriteLine("[safe search enabled]");
+            }
+            if (antiSpam)
+            {
+                Console.WriteLine("[anti spam enabled]");
             }
 
             Console.WriteLine();
@@ -144,7 +154,7 @@ namespace Cerberus_CMD
                 file.Close();
             }
 
-            // Set up events
+            // Indicate we are setting up events.
             Console.WriteLine("Defining Events");
 
             client.UsingAudio(x => // Opens an AudioConfigBuilder so we can configure our AudioService
@@ -160,7 +170,8 @@ namespace Cerberus_CMD
                 Console.ResetColor();
             };
 
-            client.MessageReceived += async (sender, e) => // Channel message has been received
+            // Channel message has been received
+            client.MessageReceived += async (sender, e) => 
             {
                 // Check if user is on the Cerberus black list
                 if (blackList.Contains(e.User.ToString()))
@@ -183,6 +194,20 @@ namespace Cerberus_CMD
                             blUsers.Append(blUser + "\n");
 
                         await e.Channel.SendMessage("Blacklisted users: " + blackList.Count + " \n\n" + blUsers.ToString());
+                    }
+                }
+
+                // Check for spam.
+                if (antiSpam && !e.User.IsBot)
+                {
+                    for (int i = 0; i < spamQueue.Count; i++)
+                    {
+                        if (spamQueue[i] == e.Message.Text)
+                        {
+                            await e.Message.Delete();
+                            await e.User.SendMessage("Don't spam, bitch!");
+                            return;
+                        }
                     }
                 }
 
@@ -363,13 +388,14 @@ namespace Cerberus_CMD
                 }
 
                 // Display help menu.
-                if (e.Message.Text == "!help")
+                if (!e.User.IsBot && e.Message.Text == "!help")
                 {
                     await e.Channel.SendMessage("\n\n```css\n#UserCommands```\n" +
                     "*The number following the hashtag is a user's 'discriminator'.*\n\n" +
+                    "!help - help menu.\n\n" + 
                     "!cat - random picture of a cat.\n" +
                     "!dog - random picture of a dog.\n" +
-                    "!tits - show me the money!\n" +
+                    "!tits - show me the money!\n\n" +
                     "!find [search phrase] - random image from search phrase.\n\n" +
                     "!kick [username] [discriminator] - vote to kick another user.\n" +
                     "!blacklist - list the blacklisted users, if any.\n" +
@@ -380,7 +406,7 @@ namespace Cerberus_CMD
                     "!rshield [username] [discriminator] - revoke access to Shield Esports. (muffin only)");
                 }
 
-                if (e.Message.Text == "!cat")
+                if (!e.User.IsBot && e.Message.Text == "!cat")
                 {
                     Thread t = new Thread(new ParameterizedThreadStart(randomcat));
                     t.Start(e.Channel);
@@ -405,7 +431,7 @@ namespace Cerberus_CMD
                         await e.Channel.SendFile(filename);
                     }
                 }
-                if (e.Message.Text == "!dog")
+                if (!e.User.IsBot && e.Message.Text == "!dog")
                 {
                     Thread t = new Thread(new ParameterizedThreadStart(randomcat));
                     t.Start(e.Channel);
@@ -419,7 +445,7 @@ namespace Cerberus_CMD
                         await e.Channel.SendFile("dog.png");
                     }
                 }
-                if (e.Message.Text == "!tits")
+                if (!e.User.IsBot && e.Message.Text == "!tits")
                 {
                     Thread t = new Thread(new ParameterizedThreadStart(randomcat));
                     t.Start(e.Channel);
@@ -431,13 +457,13 @@ namespace Cerberus_CMD
                         await e.Channel.SendFile("tits.png");
                     }
                 }
-                if (e.Message.Text == "!minecarft")
+                if (!e.User.IsBot && e.Message.Text == "!minecarft")
                 {
                     await e.Channel.SendMessage("Did you misspell 'minecraft'?");
                 }
 
                 // Ping minecraft server
-                if (e.Message.Text == "!minecraft")
+                if (!e.User.IsBot && e.Message.Text == "!minecraft")
                 {
                     if (File.Exists("pings.ini"))
                     {
@@ -463,7 +489,7 @@ namespace Cerberus_CMD
                 }
 
                 // Ping starbound server
-                if (e.Message.Text == "!starbound")
+                if (!e.User.IsBot && e.Message.Text == "!starbound")
                 {
                     if (File.Exists("pings.ini"))
                     {
@@ -536,7 +562,7 @@ namespace Cerberus_CMD
                 }
 
                 // User voted yes to kick during timer.
-                if (e.Message.Text == "!yes" && kickTimerRunning == true && !votedUsers.Contains(e.User.Name))
+                if (!e.User.IsBot && e.Message.Text == "!yes" && kickTimerRunning == true && !votedUsers.Contains(e.User.Name))
                 {
                     democracy -= 1;
 
@@ -569,7 +595,7 @@ namespace Cerberus_CMD
                 }
 
                 // Random image from search phrase
-                if ((e.Message.Text.Contains("!find") || e.Message.Text.Contains("!Find") || e.Message.Text.Contains("!FIND") || e.Message.Text.Contains("!search") || e.Message.Text.Contains("!gimme")) && e.Message.Text[0].Equals('!') && !e.User.IsBot)
+                if (!e.User.IsBot && (e.Message.Text.Contains("!find") || e.Message.Text.Contains("!Find") || e.Message.Text.Contains("!FIND") || e.Message.Text.Contains("!search") || e.Message.Text.Contains("!gimme")) && e.Message.Text[0].Equals('!') && !e.User.IsBot)
                 {
                     string[] phrase = e.Message.Text.Split(' ');
                     bool plural = false;
@@ -696,7 +722,34 @@ namespace Cerberus_CMD
                         }
                     }
                 }
-                prevMsg = e.Message.Text.ToString();
+
+                // Add message to spamQueue.
+                if (antiSpam && !e.User.IsBot)
+                {
+                    string[] message = e.Message.Text.Split(' ');
+
+                    // If user is using the find or help command, ignore it. 
+                    if (message[0] == "!find" || message[0] == "!help")
+                    {
+                        return;
+                    }
+                    
+                    // If the queue is not full, add message.
+                    if (spamQueue.Count < 3)
+                    {
+                        spamQueue.Add(e.Message.Text);
+                    }
+                    // If queue is full, move everything down one index and overwrite the final index with the new message.
+                    else
+                    {
+                        for (int i = 0 ; i < spamQueue.Count - 1; i++)
+                        {
+                            spamQueue[i] = spamQueue[i + 1];
+                        }
+
+                        spamQueue[spamQueue.Count - 1] = e.Message.Text;
+                    }
+                }
             };
 
             // This sends a message to every new channel on the server
@@ -708,7 +761,7 @@ namespace Cerberus_CMD
                 }
             };
 
-            // When a new user joins the server, send a message to them.
+            // When a new user joins the server for the first time, send a message to them.
             client.UserJoined += (sender, e) =>
             {
                 e.User.SendMessage("Welcome, " + e.User.Name + "!\nType '!help' for a list of available commands.");
@@ -747,6 +800,8 @@ namespace Cerberus_CMD
                        }
                    }
                }
+
+               // User disconnected.
                if (e.Before.VoiceChannel != null && e.After.VoiceChannel == null)
                {
                    Console.WriteLine(e.After.Name.ToString() + " left.\n");
@@ -760,6 +815,7 @@ namespace Cerberus_CMD
                    }
                }
 
+               // User went AFK.
                if (e.Before.VoiceChannel != null && e.After.VoiceChannel != null && e.Before.VoiceChannel.Name != "AFK" && e.After.VoiceChannel.Name == "AFK")
                {
                    Console.WriteLine(e.After.Name + " went afk.\n");
@@ -773,6 +829,7 @@ namespace Cerberus_CMD
                    }
                }
 
+               // User came back from being AFK.
                if (e.Before.VoiceChannel != null && e.After.VoiceChannel != null && e.Before.VoiceChannel.Name == "AFK" && e.After.VoiceChannel.Name != "AFK")
                {
                    Console.WriteLine(e.After.Name + " is no longer afk.\n");
@@ -967,13 +1024,9 @@ namespace Cerberus_CMD
             string data = "";
 
             if (safeSearch)
-            {
                 url = "https://www.google.com/search?q=" + s + "&safe=active&tbm=isch";
-            }
             else
-            {
                 url = "https://www.google.com/search?q=" + s + "&tbm=isch";
-            }
 
             var request = (HttpWebRequest)WebRequest.Create(url);
             request.Accept = "text/html, application/xhtml+xml, */*";
