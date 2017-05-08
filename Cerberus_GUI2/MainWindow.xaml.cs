@@ -427,6 +427,7 @@ namespace Cerberus_GUI2
                 "!find [search phrase] - random image from search phrase.\n\n" +
                 "!kick [@mention] - initiate a vote to kick another user.\n" +
                 "!yes - vote to kick user.\n\n" +
+                "!jail [@mention] - strip all user roles and send user to jail. (mod only)\n\n" +
                 "!blacklist - list the blacklisted users, if any.\n" +
                 "!blacklist [@mention] - blacklist a user from Cerberus. (mod only)\n\n" +
                 "!spam - enable/disable spam control. (mod only) \n\n" +
@@ -439,7 +440,7 @@ namespace Cerberus_GUI2
             // Give all users 'member' role.
             if (!message.Author.IsBot && message.Content == "!member")
             {
-                int permission = await Utils.CheckPermissionAsync(threefourteen, message);
+                int permission = await Utils.CheckPermissionAsync(threefourteen, message.Author);
                 
                 if (permission == 1)
                 {
@@ -470,7 +471,7 @@ namespace Cerberus_GUI2
             // Toggle spam control mode.
             if (!message.Author.IsBot && message.Content == "!spam")
             {
-                int permission = await Utils.CheckPermissionAsync(threefourteen, message);
+                int permission = await Utils.CheckPermissionAsync(threefourteen, message.Author);
 
                 if (permission == 1)
                 {
@@ -518,7 +519,7 @@ namespace Cerberus_GUI2
             // Blacklist a user from using Cerberus commands. (Mod only)
             if (!message.Author.IsBot && message.Content.Contains("!blacklist") && message.Content.Length > 14)
             {
-                int hasPermission = await Utils.CheckPermissionAsync(threefourteen, message);
+                int hasPermission = await Utils.CheckPermissionAsync(threefourteen, message.Author);
                 var mentionedUsers = message.MentionedUsers;
 
                 if (hasPermission == 1)
@@ -618,11 +619,18 @@ namespace Cerberus_GUI2
             // Strip user roles and send them to jail. (mod only)
             if (!message.Author.IsBot && message.Content.Contains("!jail"))
             {
-                int permission = await Utils.CheckPermissionAsync(threefourteen, message);
-                var user = threefourteen.GetUser(message.MentionedUsers.First().Id);
+                int permission = await Utils.CheckPermissionAsync(threefourteen, message.Author);
+                var tojail = threefourteen.GetUser(message.MentionedUsers.First().Id);
 
-                IEnumerable<IRole> userRoles = user.Roles;
-                IEnumerable<IRole> guildRoles = user.Guild.Roles;
+                // Prevent a user with higher level roles from being sent to jail.
+                if (await Utils.CheckPermissionAsync(threefourteen, tojail) == 1)
+                {
+                    await message.Channel.SendMessageAsync("You can't send " + tojail.Username + " to jail!");
+                    return;
+                }
+
+                IEnumerable<IRole> userRoles = tojail.Roles;
+                IEnumerable<IRole> guildRoles = tojail.Guild.Roles;
 
                 IRole jailrole = null;
 
@@ -639,18 +647,18 @@ namespace Cerberus_GUI2
                     foreach (IRole role in userRoles)
                     {
                         if (role.Name != "@everyone")
-                            await user.RemoveRoleAsync(role);
+                            await tojail.RemoveRoleAsync(role);
                     }
 
                     // Apply the jail role to user being sent to jail.
-                    await user.AddRoleAsync(jailrole);
+                    await tojail.AddRoleAsync(jailrole);
 
                     // Move user to the jail voice channel.
-                    await user.ModifyAsync(u => u.Channel = jailChannel);
+                    await tojail.ModifyAsync(u => u.Channel = jailChannel);
 
                     Application.Current.Dispatcher.Invoke((Action)(() =>
                     {
-                        ConsoleBox.Items.Add(user + " has been jailed by " + message.Author + "!");
+                        ConsoleBox.Items.Add(tojail + " has been jailed by " + message.Author + "!");
                     }));
                 }
             }
@@ -665,7 +673,6 @@ namespace Cerberus_GUI2
             if (message.Content.Contains("!kick") && !message.Author.IsBot && voteKickInProgress == false)
             {
                 IEnumerable<SocketUser> mentionedUser = message.MentionedUsers;
-
                 tokick = threefourteen.GetUser(mentionedUser.First().Id);
 
                 if (tokick == null)
@@ -674,6 +681,11 @@ namespace Cerberus_GUI2
                 }
                 else
                 {
+                    if (await Utils.CheckPermissionAsync(threefourteen, tokick) == 1)
+                    {
+                        await message.Channel.SendMessageAsync("You cannot kick " + tokick.Username + " !");
+                        return;
+                    }
 
                     Application.Current.Dispatcher.Invoke((Action)(() =>
                     {

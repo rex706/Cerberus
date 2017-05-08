@@ -167,9 +167,9 @@ namespace Cerberus_GUI2
             return urls;
         }
 
-        public static async System.Threading.Tasks.Task<int> CheckPermissionAsync(SocketGuild guild, SocketMessage message)
+        public static async System.Threading.Tasks.Task<int> CheckPermissionAsync(SocketGuild guild, SocketUser user)
         {
-            var gUser = guild.GetUser(message.Author.Id);
+            var gUser = guild.GetUser(user.Id);
 
             if (gUser == null)
             {
@@ -189,7 +189,7 @@ namespace Cerberus_GUI2
             }
 
             // Message author they don't have permission.
-            var DMChannel = await message.Author.CreateDMChannelAsync();
+            var DMChannel = await gUser.CreateDMChannelAsync();
             await DMChannel.SendMessageAsync("You don't have permission to use that command!");
             await DMChannel.CloseAsync();
 
