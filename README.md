@@ -1,4 +1,4 @@
-![alt tag](http://i.imgur.com/298HTwU.png) # Cerberus
+# Cerberus
 GUI implementation of a Discord chat bot using [Discord.Net](https://github.com/RogueException/Discord.Net).
 
 ![alt tag](http://i.imgur.com/CnSWJyo.png)
