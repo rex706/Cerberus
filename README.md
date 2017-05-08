@@ -1,34 +1,45 @@
-# Cerberus				![alt tag](http://i.imgur.com/Z3cuEJA.png?1)
-Discord chat bot with some useful user commands.
+![alt tag](http://i.imgur.com/298HTwU.png) # Cerberus
+GUI implementation of a Discord chat bot using [Discord.Net](https://github.com/RogueException/Discord.Net).
 
-![alt tag](http://i.imgur.com/lCYIRkm.png)
+![alt tag](http://i.imgur.com/CnSWJyo.png)
 
--Requires DiscordNet Nuget package-
+**Toggles**
 
-Command line arguments
-* -chat
-	- log the chat to a file
-* -users
-	- log usernames joined to a file
-* -ping
-	- ping predefined servers for availability
+Log Chat - log all chat to a text file.
 
-Commands
-* !cat ---------------------------------- generate random cat picture.
-* !dog ---------------------------------- generate random dog picture.
-* !tits ---------------------------------- natural tits! (birds).
-* !gimme/!find [search phrase] -------- random image from search phrase.
-* !region -------------------------------- get discord server region.
-* !minecraft ----------------------------- minecraft server status. 
-* !starbound ----------------------------- starbound server status.
-* !jail [username] [discriminator] ------- vote to strip user's roles and jail them to the jail channel.
-* !kick [username] [discriminator] ------- vote to kick another user from the server.
-* !member -------------------------------- grant all users the member role to act as the new @everyone role so !jail works. (admin only)
-	- member command not yet working. need to save member and noob role to specific values from the start to be accessed whenever.
+Log Users - log all unique users to have joined.
+
+Ping Servers - check if Minecraft/Starbound server is online.
+
+Safe Search - enable safe searching for the '!find' command.
+
+Spam Control - prevent users from spamming the chat. (Experimental)
+
+**Commands**
+
+* !help - display the help menu.
+* !tits - natural tits! (birds).
+* !find [search phrase] - random image from search phrase.
+* !minecraft - minecraft server status. 
+* !starbound - starbound server status.
+* !jail [@mention] - vote to strip user roles and move them to the jail channel.
+* !kick [@mention] - vote to kick another user from the server.
+	- !yes - vote to kick user.
+* !blacklist - list the blacklisted users, if any.
+* !blacklist [@mention] - blacklist a user from Cerberus. (mod only)
+* !spam - enable/disable spam control. (mod only)
+* !member - grant all users the member role to act as the new @everyone role so !jail works. (mod only)
 
 Will also welcome new users to server.
 Only a single timed vote can occur at a time to prevent issues. 
 
-Disabled features
-* Welcome a user back afte they have been offline and come back online, or join a guild voice channel after not have been in one previously.
+*Disabled features*
+* Welcome a user back after they have been offline and come back online, or join a guild voice channel after not have been in one previously.
 * Prevent messages from being deleted.
+
+**CHANGELOG**
+
+*Latest version:* 0.2.0.0
+
+* Update to Discord.Net version 1.0.0-rc
+* Convert console to GUI.

@@ -3,7 +3,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace Cerberus_CMD
+namespace Cerberus_GUI2
 {
     class IniFile   // revision 10
     {
