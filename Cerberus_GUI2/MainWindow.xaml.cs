@@ -155,7 +155,7 @@ namespace Cerberus_GUI2
             try
             {
                 // bot token
-                string token = "MjA2OTU1MjcwMzIzMTc1NDI2.CzEqig.mX0SfHN3OqU4fjGsHx8nap59b0U";
+                string token = TOKEN;
                 await client.LoginAsync(TokenType.Bot, token);
                 await client.StartAsync();
             }
