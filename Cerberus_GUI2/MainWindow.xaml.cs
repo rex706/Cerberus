@@ -14,6 +14,7 @@ using System.Timers;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
 
 namespace Cerberus_GUI2
 {
@@ -34,17 +35,17 @@ namespace Cerberus_GUI2
         private static string jailRoleName = "Inmate";
         private static string errorMsg = "Something went wrong :confused: Please try again!";
 
-        private static System.Timers.Timer kickTimer;
+        private static Timer kickTimer;
         private static bool kickTimerRunning = false;
         private static HashSet<string> votedUsers;
 
-        private static System.Timers.Timer autoPingTimer;
-        private static System.Timers.Timer spamTimer;
+        private static Timer autoPingTimer;
+        private static Timer spamTimer;
+        private static Timer jailCheckTimer;
 
         private static int numUsers;
         private static int democracy;
 
-        private static string[] kickMessage;
         private static SocketGuildUser tokick;
 
         private static bool voteKickInProgress = false;
@@ -66,12 +67,13 @@ namespace Cerberus_GUI2
         private static SocketTextChannel minecraftChannel;
         private static SocketTextChannel mod_chat;
         private static SocketTextChannel devChannel;
+        private static SocketTextChannel jailTextChannel;
 
         private static SocketGuild selectedGuild;
         private static SocketChannel selectedChannel;
         private static SocketGuildUser selectedUser;
         private static RestDMChannel currentDM;
-        private static SocketVoiceChannel jailChannel;
+        private static SocketVoiceChannel jailVoiceChannel;
 
         public MainWindow()
         {
@@ -155,7 +157,7 @@ namespace Cerberus_GUI2
             try
             {
                 // bot token
-                string token = TOKEN;
+                string token = "MjA2OTU1MjcwMzIzMTc1NDI2.C_JuKg.QQvyRkMFHDKoICJq7VweQ7mZYTU";
                 await client.LoginAsync(TokenType.Bot, token);
                 await client.StartAsync();
             }
@@ -167,30 +169,27 @@ namespace Cerberus_GUI2
             client.Ready += () =>
             {
                 // Done!
-                Application.Current.Dispatcher.Invoke((Action)(() =>
+                Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                 {
-                    ConsoleBox.Items.Add("Client connected!");
+                    ConsoleBox.Items.Add(setupItemContext("Client connected!", 0));
                     ConsoleBox.Items.Add("--------------------");
                 }));
 
-                // Get text channels.
+                // Get important channels.
                 threefourteen = client.GetGuild(97459030741508096);
                 generalChannel = client.GetChannel(97459030741508096) as SocketTextChannel;
                 minecraftChannel = client.GetChannel(206980643148529665) as SocketTextChannel;
                 mod_chat = client.GetChannel(236670943387320333) as SocketTextChannel;
                 devChannel = client.GetChannel(206951913789325312) as SocketTextChannel;
-                jailChannel = client.GetChannel(207717697331527681) as SocketVoiceChannel;
+                jailTextChannel = client.GetChannel(311291896733499403) as SocketTextChannel;
+                jailVoiceChannel = client.GetChannel(207717697331527681) as SocketVoiceChannel;
 
                 IEnumerable<SocketGuild> guilds = client.Guilds;
 
-                Application.Current.Dispatcher.Invoke((Action)(() =>
-                {
-                    GuildsBox.Items.Clear();
-                }));
-                
+                // Fill guild box with guilds.
                 foreach (SocketGuild guild in guilds)
                 {
-                    Application.Current.Dispatcher.Invoke((Action)(() =>
+                    Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                     {
                         GuildsBox.Items.Add(guild);
                     }));
@@ -208,9 +207,9 @@ namespace Cerberus_GUI2
             // User joined a voice channel after not being previously connected to any.
             if (arg2.VoiceChannel == null && arg3.VoiceChannel != null)
             {
-                Application.Current.Dispatcher.Invoke((Action)(() =>
+                Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                 {
-                    ConsoleBox.Items.Add(arg1.Username + " joined " + arg3.VoiceChannel.Name + ".");
+                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " joined " + arg3.VoiceChannel.Name + ".", 1));
                 }));
                 
 
@@ -228,9 +227,9 @@ namespace Cerberus_GUI2
                 {
                     if (userSet.Add(arg1.Username))
                     {
-                        Application.Current.Dispatcher.Invoke((Action)(() =>
+                        Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                         {
-                            ConsoleBox.Items.Add("Added " + arg1.Username + " to HashSet");
+                            ConsoleBox.Items.Add(setupItemContext("Added " + arg1.Username + " to HashSet", 1));
                         }));
                         
                         using (StreamWriter file = File.AppendText("user_names.txt"))
@@ -244,9 +243,9 @@ namespace Cerberus_GUI2
             // User disconnected.
             if (arg2.VoiceChannel != null && arg3.VoiceChannel == null)
             {
-                Application.Current.Dispatcher.Invoke((Action)(() =>
+                Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                 {
-                    ConsoleBox.Items.Add(arg1.Username + " left.");
+                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " left.", 1));
                 }));
 
                 if (logChat)
@@ -261,9 +260,9 @@ namespace Cerberus_GUI2
             // User went AFK.
             if (arg2.VoiceChannel != null && arg3.VoiceChannel != null && arg2.VoiceChannel.Name != afkChannelName && arg3.VoiceChannel.Name == afkChannelName)
             {
-                Application.Current.Dispatcher.Invoke((Action)(() =>
+                Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                 {
-                    ConsoleBox.Items.Add(arg1.Username + " went afk.");
+                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " went afk.", 1));
                 }));
 
                 if (logChat)
@@ -278,9 +277,10 @@ namespace Cerberus_GUI2
             // User came back from being AFK.
             if (arg2.VoiceChannel != null && arg3.VoiceChannel != null && arg2.VoiceChannel.Name == afkChannelName && arg3.VoiceChannel.Name != afkChannelName)
             {
-                Application.Current.Dispatcher.Invoke((Action)(() =>
+                Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                 {
-                    ConsoleBox.Items.Add(arg1.Username + " is no longer afk.");
+                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " is no longer afk.", 1));
+                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " joined " + arg3.VoiceChannel.Name + ".", 1));
                 }));
 
                 if (logChat)
@@ -288,6 +288,7 @@ namespace Cerberus_GUI2
                     using (StreamWriter file = File.AppendText("chat_log.txt"))
                     {
                         file.WriteLine(arg1.Username + " is no longer afk.");
+                        file.WriteLine(arg1.Username + " joined " + arg3.VoiceChannel.Name + ".\n");
                     }
                 }
             }
@@ -297,10 +298,30 @@ namespace Cerberus_GUI2
 
         private Task UserUpdated(SocketUser arg1, SocketUser arg2)
         {
-            throw new NotImplementedException();
+            numUsers = 0;
 
-            // User was offline and came back online
-            //(arg1.Status == UserStatus.Offline && arg2.Status == UserStatus.Online)
+            // Refresh users list box if someone has come online or gone offline.
+            if ((arg1.Status == UserStatus.Offline && arg2.Status == UserStatus.Online) || (arg1.Status == UserStatus.Online && arg2.Status == UserStatus.Offline))
+            {
+                IEnumerable<SocketGuildUser> users = selectedGuild.Users;
+
+                Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+                {
+                    UsersBox.Items.Clear();
+
+                    // Load the user box with users.
+                    foreach (SocketGuildUser user in users)
+                    {
+                        if (!user.IsBot && user.Status != UserStatus.Offline)
+                        {
+                            UsersBox.Items.Add(user);
+                            numUsers++;
+                        }
+                    }
+                }));
+            }
+
+            return Task.CompletedTask;
         }
 
         private async Task UserJoinedAsync(SocketGuildUser arg)
@@ -314,10 +335,10 @@ namespace Cerberus_GUI2
         {
             var deleted = await arg1.GetOrDownloadAsync();
 
-            Application.Current.Dispatcher.Invoke((Action)(() =>
-            {
-                ConsoleBox.Items.Add("Deleted: " + deleted.Author.Username + ": " + deleted.Content);
-            }));
+            await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+             {
+                 ConsoleBox.Items.Add(setupItemContext("Deleted: " + deleted.Author.Username + ": " + deleted.Content, 1));
+             }));
 
             if (logChat)
             {
@@ -381,13 +402,13 @@ namespace Cerberus_GUI2
             // Record to text file if not bot.
             if (!message.Author.IsBot || message.Content.Contains(errorMsg))
             {
-                Application.Current.Dispatcher.Invoke((Action)(() =>
-                {
-                    if (message.Attachments.Count > 0)
-                        ConsoleBox.Items.Add(message.Author.Username + " [" + message.Channel.Name+ "]: [attachment] " + message.Content);
-                    else
-                        ConsoleBox.Items.Add(message.Author.Username + " [" + message.Channel.Name + "]: " + message.Content);
-                }));
+                await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+                 {
+                     if (message.Attachments.Count > 0)
+                         ConsoleBox.Items.Add(setupItemContext(message.Author.Username + " [" + message.Channel.Name + "]: [attachment] " + message.Content, 1));
+                     else
+                         ConsoleBox.Items.Add(setupItemContext(message.Author.Username + " [" + message.Channel.Name + "]: " + message.Content, 1));
+                 }));
 
                 if (logChat)
                 {
@@ -461,10 +482,10 @@ namespace Cerberus_GUI2
 
                     await message.Channel.SendMessageAsync("Member role given to all users!");
 
-                    Application.Current.Dispatcher.Invoke((Action)(() =>
-                    {
-                        ConsoleBox.Items.Add("Member role given to all users!");
-                    }));
+                    await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+                     {
+                         ConsoleBox.Items.Add(setupItemContext("Member role given to all users!", 1));
+                     }));
                 }
             }
 
@@ -479,20 +500,20 @@ namespace Cerberus_GUI2
                     {
                         await message.Channel.SendMessageAsync("Spam control has been **enabled**.");
 
-                        Application.Current.Dispatcher.Invoke((Action)(() =>
+                        await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                         {
                             SpamControlCheckBox.IsChecked = true;
-                            ConsoleBox.Items.Add(message.Author + " has enabled spam control.");
+                            ConsoleBox.Items.Add(setupItemContext(message.Author + " has enabled spam control.", 1));
                         }));
                     }
                     else
                     {
                         await message.Channel.SendMessageAsync("Spam control has been **disabled**.");
 
-                        Application.Current.Dispatcher.Invoke((Action)(() =>
+                        await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                         {
                             SpamControlCheckBox.IsChecked = false;
-                            ConsoleBox.Items.Add(message.Author + " has disabled spam control.");
+                            ConsoleBox.Items.Add(setupItemContext(message.Author + " has disabled spam control.", 1));
                         }));
                     }
                 }
@@ -539,9 +560,9 @@ namespace Cerberus_GUI2
                         blackList.Add(user.ToString());
                         await message.Channel.SendMessageAsync(user.Mention + " has been blacklisted from Cerberus by " + message.Author.Username);
 
-                        Application.Current.Dispatcher.Invoke((Action)(() =>
+                        await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                         {
-                            ConsoleBox.Items.Add(user.ToString() + " has been blacklisted from Cerberus by " + message.Author.Username);
+                            ConsoleBox.Items.Add(setupItemContext(user.ToString() + " has been blacklisted from Cerberus by " + message.Author.Username, 1));
                         }));
                     }
                 }
@@ -617,8 +638,56 @@ namespace Cerberus_GUI2
             }
 
             // Strip user roles and send them to jail. (mod only)
-            if (!message.Author.IsBot && message.Content.Contains("!jail"))
+            if (!message.Author.IsBot && message.Content.Split(' ')[0] == "!jail")
             {
+                string[] s = message.Content.Split(' ');
+                double time = 600; // 600s = 10 minutes default.
+                double seconds = 0;
+                string length = "seconds";
+
+                if (s.Count() == 3)
+                {
+                    try
+                    {
+                        time = Int32.Parse(s[2]);
+                    }
+                    catch (Exception m)
+                    {
+                        await message.Channel.SendMessageAsync(m.Message);
+                        return;
+                    }
+                }
+                else if (s.Count() == 4)
+                {
+                    try
+                    {
+                        time = Int32.Parse(s[2]);
+                        length = s[3];
+                    }
+                    catch (Exception m)
+                    {
+                        await message.Channel.SendMessageAsync(m.Message);
+                        return;
+                    }
+
+                    if (length[0] == 'd')
+                    {
+                        seconds = time * 86400;
+                    }
+                    else if (length[0] == 'h')
+                    {
+                        seconds = time * 3600;
+                    }
+                    else if (length[0] == 'm')
+                    {
+                        seconds = time * 60;
+                    }
+                    else if (length[0] == 's')
+                    {
+                        seconds = time;
+                    }
+                }
+
                 int permission = await Utils.CheckPermissionAsync(threefourteen, message.Author);
                 var tojail = threefourteen.GetUser(message.MentionedUsers.First().Id);
 
@@ -654,12 +723,14 @@ namespace Cerberus_GUI2
                     await tojail.AddRoleAsync(jailrole);
 
                     // Move user to the jail voice channel.
-                    await tojail.ModifyAsync(u => u.Channel = jailChannel);
+                    await tojail.ModifyAsync(u => u.Channel = jailVoiceChannel);
 
-                    Application.Current.Dispatcher.Invoke((Action)(() =>
+                    await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                     {
-                        ConsoleBox.Items.Add(tojail + " has been jailed by " + message.Author + "!");
+                        ConsoleBox.Items.Add(setupItemContext(tojail + " has been jailed by " + message.Author + " for " + time + " " + length + "!", 1));
                     }));
+
+                    await jailTextChannel.SendMessageAsync("Welcome to jail " + tojail.Mention + "!\n\nYour sentence is: " + time + " " + length + ".");
                 }
             }
 
@@ -687,15 +758,22 @@ namespace Cerberus_GUI2
                         return;
                     }
 
-                    Application.Current.Dispatcher.Invoke((Action)(() =>
-                    {
-                        ConsoleBox.Items.Add(message.Author.Username + " initiated vote to kick " + tokick.Username + ".");
-                    }));
+                    await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+                     {
+                         ConsoleBox.Items.Add(setupItemContext(message.Author.Username + " initiated vote to kick " + tokick.Username + ".", 1));
+                     }));
 
                     voteKickInProgress = true;
                     lastchannel = message.Channel;
-                    //numUsers =
-                    democracy = 1; //(numUsers / 6);
+
+                    if (numUsers / 2 >= 5)
+                    {
+                        democracy = numUsers / 2;
+                    }
+                    else
+                    {
+                        democracy = 5;
+                    }
 
                     if (democracy == 1)
                         await message.Channel.SendMessageAsync("Vote to kick " + tokick.Mention + " initiated for 2 minutes! **" + democracy + "** vote required.\n\n```Type !yes to kick.```");
@@ -732,10 +810,10 @@ namespace Cerberus_GUI2
                     if (kickTimerRunning == true)
                     {
 
-                        Application.Current.Dispatcher.Invoke((Action)(() =>
-                        {
-                            ConsoleBox.Items.Add("Kicking " + tokick.Username + "...");
-                        }));
+                        await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+                         {
+                             ConsoleBox.Items.Add(setupItemContext("Kicking " + tokick.Username + "...", 1));
+                         }));
                         
                         await message.Channel.SendMessageAsync("Vote passed! Kicking " + tokick.Username + "...  **democracy!**");
                         await tokick.KickAsync();
@@ -750,7 +828,7 @@ namespace Cerberus_GUI2
             }
 
             // Random image from search phrase
-            if (!message.Author.IsBot && (message.Content.Contains("!find") || message.Content.Contains("!Find") || message.Content.Contains("!FIND") || message.Content.Contains("!search")))
+            if (!message.Author.IsBot && message.Content.Split(' ')[0] == "!find")
             {
                 string[] phrase = message.Content.Split(' ');
                 bool plural = false;
@@ -776,14 +854,24 @@ namespace Cerberus_GUI2
                 {
                     // Delete all @ symbols.
                     phrase[1] = phrase[1].Replace("@", "");
-
                     query.Append(phrase[1]);
                 }
 
                 if (query[query.Length - 1].Equals('s'))
                     plural = true;
 
-                string html = Utils.GetHtmlCode(query.ToString(), safeSearch);
+                string html = null;
+
+                // Ignore safe search for nsfw channel.
+                if (message.Channel.Name == "nsfw" || message.Channel.Name == "NSFW")
+                {
+                    html = Utils.GetHtmlCode(query.ToString(), false);
+                }
+                else
+                {
+                    html = Utils.GetHtmlCode(query.ToString(), safeSearch);
+                }
+
                 List<string> urls = Utils.GetUrls(html);
                 var rnd = new Random();
 
@@ -821,27 +909,34 @@ namespace Cerberus_GUI2
                     }
                 }
 
-                Application.Current.Dispatcher.Invoke((Action)(() =>
-                {
-                    ConsoleBox.Items.Add(message.Author.Username + " queried '" + query + "' in #" + message.Channel.Name + "\n" + luckyUrl);
-                }));
+                 await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+                 {
+                     ConsoleBox.Items.Add(setupItemContext(message.Author.Username + " queried '" + query + "' in #" + message.Channel.Name + "\n" + luckyUrl, 1));
+                 }));
                     
                 using (var httpclient = new System.Net.Http.HttpClient())
                 {
                     using (var stream = await httpclient.GetStreamAsync(luckyUrl))
                     {
-                        if (plural)
+                        try
                         {
-                            await message.Channel.SendFileAsync(stream, "image" + fileType, "I found " + query + "!");
+                            if (plural)
+                            {
+                                await message.Channel.SendFileAsync(stream, "image" + fileType, "I found " + query + "!");
+                            }
+                            else if (query[0] == 'a' || query[0] == 'e' || query[0] == 'i' || query[0] == 'o' || query[0] == 'u'
+                            || query[0] == 'A' || query[0] == 'E' || query[0] == 'I' || query[0] == 'O' || query[0] == 'U')
+                            {
+                                await message.Channel.SendFileAsync(stream, "image" + fileType, "I found an " + query + "!");
+                            }
+                            else
+                            {
+                                await message.Channel.SendFileAsync(stream, "image" + fileType, "I found a " + query + "!");
+                            }
                         }
-                        else if (query[0] == 'a' || query[0] == 'e' || query[0] == 'i' || query[0] == 'o' || query[0] == 'u'
-                        || query[0] == 'A' || query[0] == 'E' || query[0] == 'I' || query[0] == 'O' || query[0] == 'U')
+                        catch (Exception m)
                         {
-                            await message.Channel.SendFileAsync(stream, "image" + fileType, "I found an " + query + "!");
-                        }
-                        else
-                        {
-                            await message.Channel.SendFileAsync(stream, "image" + fileType, "I found a " + query + "!");
+                            await message.Channel.SendMessageAsync(m.Message);
                         }
                     }
                         
@@ -852,7 +947,7 @@ namespace Cerberus_GUI2
                 {
                     string[] text = message.Content.Split(' ');
 
-                    // If user is using the find or help command, ignore it. 
+                    // If user is using the find or help command, ignore it. (Might be dangerous)
                     if (text[0] == "!find" || text[0] == "!help")
                     {
                         return;
@@ -870,7 +965,51 @@ namespace Cerberus_GUI2
                         messageSpamQueue.AddFirst(message.Content);
                     }
                 }
-            };
+            }
+        }
+
+        // Set up timestamp and copy to clipboard context menu items.
+        private ListBoxItem setupItemContext(string text, int flag)
+        {
+            // Create new listbox item and assign text value.
+            ListBoxItem item = new ListBoxItem();
+            item.Content = text;
+
+            // Create new context menu and menu items.
+            ContextMenu itemContext = new ContextMenu();
+            MenuItem timeStamp = new MenuItem();
+            MenuItem copy = new MenuItem();
+
+            timeStamp.Header = DateTime.Now;
+            timeStamp.IsEnabled = false;
+
+            copy.Header = "Copy";
+            copy.Click += Copy_Click;
+
+            itemContext.Items.Add(timeStamp);
+
+            if (flag == 1)
+                itemContext.Items.Add(copy);
+
+            // Add context menu to item.
+            item.ContextMenu = itemContext;
+
+            return item;
+        }
+
+        private void Copy_Click(object sender, RoutedEventArgs e)
+        {
+            // Get the timestamp from the selected item.
+            ListBoxItem item = (ListBoxItem)ConsoleBox.ItemContainerGenerator.ContainerFromItem(ConsoleBox.SelectedItem);
+
+            string timeStamp = item.ContextMenu.Items[0].ToString();
+            int start = timeStamp.IndexOf(":") + 1;
+            int end = timeStamp.IndexOf("Items");
+            int length = end - start;
+            timeStamp = timeStamp.Substring(start, length);
+
+            // Copy contents of the selected listbox item to the clipboard.
+            Clipboard.SetText(timeStamp + " " + item.Content.ToString());
         }
 
         // Vote to kick timer ended
@@ -881,9 +1020,9 @@ namespace Cerberus_GUI2
             // Vote failed
             if (democracy > 0)
             {
-                Application.Current.Dispatcher.Invoke((Action)(() =>
+                Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                 {
-                    ConsoleBox.Items.Add("Vote to kick " + tokick.Username + " failed.");
+                    ConsoleBox.Items.Add(setupItemContext("Vote to kick " + tokick.Username + " failed.", 1));
                 }));
 
                 lastchannel.SendMessageAsync("Kick failed. Not enough users voted.");
@@ -1078,7 +1217,7 @@ namespace Cerberus_GUI2
 
                 if (ch != null)
                 {
-                    Application.Current.Dispatcher.Invoke((Action)(() =>
+                    Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                     {
                         ChannelsBox.Items.Add(channel);
                     }));
@@ -1086,15 +1225,19 @@ namespace Cerberus_GUI2
 
             }
 
+            numUsers = 0;
+
             // Load the user box with users.
             foreach (SocketGuildUser user in users)
             {
                 if (!user.IsBot && user.Status != UserStatus.Offline)
                 {
-                    Application.Current.Dispatcher.Invoke((Action)(() =>
+                    Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                     {
                         UsersBox.Items.Add(user);
                     }));
+
+                    numUsers++;
                 }
             }
         }
@@ -1142,7 +1285,7 @@ namespace Cerberus_GUI2
 
             if (result == MessageBoxResult.Yes)
             {
-                Application.Current.Dispatcher.Invoke((Action)(() =>
+                Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                 {
                     ConsoleBox.Items.Clear();
                 }));

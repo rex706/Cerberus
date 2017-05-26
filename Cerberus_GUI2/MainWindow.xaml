@@ -6,17 +6,18 @@
         xmlns:local="clr-namespace:Cerberus_GUI2"
         mc:Ignorable="d"
         Loaded="MainWindow_Loaded"
-        Title="Cerberus" Height="825.5" Width="639.5" Background="#FF333638" ResizeMode="CanMinimize" Icon="Cerberus_300x300_circular.png">
+        Title="Cerberus" Height="825" Width="640" Background="#FF333638" ResizeMode="CanMinimize" Icon="Cerberus_300x300_circular.png">
     <Grid>
         <TextBlock x:Name="TitleBox" HorizontalAlignment="Left" Margin="10,6,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Height="154" Width="604" FontSize="150" Text="Cerberus" FontFamily="Harlow Solid Italic" Foreground="#FF5B397E" TextAlignment="Center" FontStyle="Italic" TextDecorations="{x:Null}"/>
         <Menu x:Name="FileMenu" DockPanel.Dock="Top" Height="20" VerticalAlignment="Top">
             <MenuItem Header="File">
+                <MenuItem Header="Add Guild" IsEnabled="False" />
                 <Separator />
                 <MenuItem Header="Exit" Click="ExitMenuItem_Click" />
             </MenuItem>
             <MenuItem Header="Edit" Click="MenuItem_Click">
                 <MenuItem Header="Clear Console" />
-                <MenuItem Header="Settings" Click="SettingsButton_Click" />
+                <MenuItem Header="Settings" IsEnabled="False" Click="SettingsButton_Click" />
             </MenuItem>
             <MenuItem Header="Help">
                 <MenuItem Header="GitHub" Click="GitMenuItem_Click" />
@@ -34,13 +35,7 @@
             </TextBox.InputBindings>
         </TextBox>
         <Button x:Name="SubmitButton" Content="Send" HorizontalAlignment="Left" Margin="539,758,0,0" VerticalAlignment="Top" Width="75" Click="SubmitButton_Click"/>
-        <ListBox x:Name="ConsoleBox" HorizontalContentAlignment="Stretch" ItemsSource="{Binding}" HorizontalAlignment="Left" Height="407" Margin="10,344,0,0" VerticalAlignment="Top" Width="604" Foreground="#FFD1D1D1" Background="#FF111111">
-            <TextBlock>
-                <TextBlock.Background>
-                    <SolidColorBrush Color="{Binding}"/>
-                </TextBlock.Background>
-            </TextBlock>
-        </ListBox>
+        <ListBox x:Name="ConsoleBox" HorizontalContentAlignment="Stretch" ItemsSource="{Binding}" HorizontalAlignment="Left" Height="407" Margin="10,344,0,0" VerticalAlignment="Top" Width="604" Foreground="#FFD1D1D1" Background="#FF111111"/>
         <TextBlock x:Name="VersionBox"  HorizontalAlignment="Left" Margin="495,141,0,0" TextWrapping="Wrap" Text="{Binding}" VerticalAlignment="Top" Foreground="#FF5B397E" Width="84"/>
         <ListBox x:Name="GuildsBox" HorizontalAlignment="Left" Height="99" Margin="10,240,0,0" VerticalAlignment="Top" Width="200" Background="#FF111111" Foreground="#FFD1D1D1" SelectionChanged="GuildsBox_SelectionChanged"/>
         <ListBox x:Name="ChannelsBox" HorizontalAlignment="Left" Height="99" Margin="215,240,0,0" VerticalAlignment="Top" Width="198" Background="#FF111111" Foreground="#FFD1D1D1" SelectionChanged="ChannelsBox_SelectionChangedAsync"/>
