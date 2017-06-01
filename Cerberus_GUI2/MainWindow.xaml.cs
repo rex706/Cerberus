@@ -14,6 +14,7 @@ using System.Timers;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace Cerberus_GUI2
@@ -75,6 +76,8 @@ namespace Cerberus_GUI2
         private static RestDMChannel currentDM;
         private static SocketVoiceChannel jailVoiceChannel;
 
+        private static Brush defaultBrush;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -103,7 +106,10 @@ namespace Cerberus_GUI2
 
             InputTextBox.KeyDown += new KeyEventHandler(tb_KeyDown);
 
-            ConsoleBox.Items.Clear();
+            // Set up the default brush color used for the console.
+            var converter = new System.Windows.Media.BrushConverter();
+            defaultBrush = (Brush)converter.ConvertFromString("#FFD1D1D1");
+
             ConsoleBox.Items.Add("Creating Client");
 
             client = new DiscordSocketClient();
@@ -157,13 +163,13 @@ namespace Cerberus_GUI2
             try
             {
                 // bot token
-                string token = "MjA2OTU1MjcwMzIzMTc1NDI2.C_JuKg.QQvyRkMFHDKoICJq7VweQ7mZYTU";
+                string token = TOKEN;
                 await client.LoginAsync(TokenType.Bot, token);
                 await client.StartAsync();
             }
             catch (Exception m)
             {
-                ConsoleBox.Items.Add(m.Message);
+                ConsoleBox.Items.Add(setupItemContext(m.Message, Brushes.Red, 1));
             }
 
             client.Ready += () =>
@@ -171,7 +177,7 @@ namespace Cerberus_GUI2
                 // Done!
                 Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                 {
-                    ConsoleBox.Items.Add(setupItemContext("Client connected!", 0));
+                    ConsoleBox.Items.Add(setupItemContext("Client connected!", Brushes.LimeGreen, 0));
                     ConsoleBox.Items.Add("--------------------");
                 }));
 
@@ -209,9 +215,8 @@ namespace Cerberus_GUI2
             {
                 Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                 {
-                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " joined " + arg3.VoiceChannel.Name + ".", 1));
+                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " joined " + arg3.VoiceChannel.Name + ".", defaultBrush, 1));
                 }));
-                
 
                 if (logChat)
                 {
@@ -229,7 +234,7 @@ namespace Cerberus_GUI2
                     {
                         Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                         {
-                            ConsoleBox.Items.Add(setupItemContext("Added " + arg1.Username + " to HashSet", 1));
+                            ConsoleBox.Items.Add(setupItemContext("Added " + arg1.Username + " to HashSet", defaultBrush, 1));
                         }));
                         
                         using (StreamWriter file = File.AppendText("user_names.txt"))
@@ -245,7 +250,7 @@ namespace Cerberus_GUI2
             {
                 Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                 {
-                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " left.", 1));
+                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " left.", defaultBrush, 1));
                 }));
 
                 if (logChat)
@@ -262,7 +267,7 @@ namespace Cerberus_GUI2
             {
                 Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                 {
-                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " went afk.", 1));
+                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " went afk.", defaultBrush, 1));
                 }));
 
                 if (logChat)
@@ -279,8 +284,8 @@ namespace Cerberus_GUI2
             {
                 Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                 {
-                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " is no longer afk.", 1));
-                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " joined " + arg3.VoiceChannel.Name + ".", 1));
+                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " is no longer afk.", defaultBrush, 1));
+                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " joined " + arg3.VoiceChannel.Name + ".", defaultBrush, 1));
                 }));
 
                 if (logChat)
@@ -337,7 +342,7 @@ namespace Cerberus_GUI2
 
             await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
              {
-                 ConsoleBox.Items.Add(setupItemContext("Deleted: " + deleted.Author.Username + ": " + deleted.Content, 1));
+                 ConsoleBox.Items.Add(setupItemContext("Deleted: " + deleted.Author.Username + ": " + deleted.Content, defaultBrush, 1));
              }));
 
             if (logChat)
@@ -405,9 +410,9 @@ namespace Cerberus_GUI2
                 await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                  {
                      if (message.Attachments.Count > 0)
-                         ConsoleBox.Items.Add(setupItemContext(message.Author.Username + " [" + message.Channel.Name + "]: [attachment] " + message.Content, 1));
+                         ConsoleBox.Items.Add(setupItemContext(message.Author.Username + " [" + message.Channel.Name + "]: [attachment] " + message.Content, defaultBrush, 1));
                      else
-                         ConsoleBox.Items.Add(setupItemContext(message.Author.Username + " [" + message.Channel.Name + "]: " + message.Content, 1));
+                         ConsoleBox.Items.Add(setupItemContext(message.Author.Username + " [" + message.Channel.Name + "]: " + message.Content, defaultBrush, 1));
                  }));
 
                 if (logChat)
@@ -445,7 +450,8 @@ namespace Cerberus_GUI2
                 await message.Channel.SendMessageAsync("\n\n```css\n#UserCommands```\n" +
                 "!help - help menu. (you are here)\n\n" +
                 "!tits - show me the money!\n\n" +
-                "!find [search phrase] - random image from search phrase.\n\n" +
+                "!find [search phrase] - random image from search phrase.\n" +
+                "!find [search phrase] gif - random gif from search phrase.\n\n" +
                 "!kick [@mention] - initiate a vote to kick another user.\n" +
                 "!yes - vote to kick user.\n\n" +
                 "!jail [@mention] - strip all user roles and send user to jail. (mod only)\n\n" +
@@ -484,7 +490,7 @@ namespace Cerberus_GUI2
 
                     await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                      {
-                         ConsoleBox.Items.Add(setupItemContext("Member role given to all users!", 1));
+                         ConsoleBox.Items.Add(setupItemContext("Member role given to all users!", defaultBrush, 1));
                      }));
                 }
             }
@@ -503,7 +509,7 @@ namespace Cerberus_GUI2
                         await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                         {
                             SpamControlCheckBox.IsChecked = true;
-                            ConsoleBox.Items.Add(setupItemContext(message.Author + " has enabled spam control.", 1));
+                            ConsoleBox.Items.Add(setupItemContext(message.Author + " has enabled spam control.", defaultBrush, 1));
                         }));
                     }
                     else
@@ -513,7 +519,7 @@ namespace Cerberus_GUI2
                         await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                         {
                             SpamControlCheckBox.IsChecked = false;
-                            ConsoleBox.Items.Add(setupItemContext(message.Author + " has disabled spam control.", 1));
+                            ConsoleBox.Items.Add(setupItemContext(message.Author + " has disabled spam control.", defaultBrush, 1));
                         }));
                     }
                 }
@@ -524,7 +530,7 @@ namespace Cerberus_GUI2
             {
                 if (blackList.Count == 0)
                 {
-                    await message.Channel.SendMessageAsync("There are no currently blacklisted users.");
+                    await message.Channel.SendMessageAsync("There are currently 0 blacklisted users.");
                 }
                 else
                 {
@@ -562,7 +568,7 @@ namespace Cerberus_GUI2
 
                         await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                         {
-                            ConsoleBox.Items.Add(setupItemContext(user.ToString() + " has been blacklisted from Cerberus by " + message.Author.Username, 1));
+                            ConsoleBox.Items.Add(setupItemContext(user.ToString() + " has been blacklisted from Cerberus by " + message.Author.Username, Brushes.Orange, 1));
                         }));
                     }
                 }
@@ -727,7 +733,7 @@ namespace Cerberus_GUI2
 
                     await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                     {
-                        ConsoleBox.Items.Add(setupItemContext(tojail + " has been jailed by " + message.Author + " for " + time + " " + length + "!", 1));
+                        ConsoleBox.Items.Add(setupItemContext(tojail + " has been jailed by " + message.Author + " for " + time + " " + length + "!", Brushes.Orange, 1));
                     }));
 
                     await jailTextChannel.SendMessageAsync("Welcome to jail " + tojail.Mention + "!\n\nYour sentence is: " + time + " " + length + ".");
@@ -754,13 +760,13 @@ namespace Cerberus_GUI2
                 {
                     if (await Utils.CheckPermissionAsync(threefourteen, tokick) == 1)
                     {
-                        await message.Channel.SendMessageAsync("You cannot kick " + tokick.Username + " !");
+                        await message.Channel.SendMessageAsync("You cannot kick " + tokick.Username + "!");
                         return;
                     }
 
                     await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                      {
-                         ConsoleBox.Items.Add(setupItemContext(message.Author.Username + " initiated vote to kick " + tokick.Username + ".", 1));
+                         ConsoleBox.Items.Add(setupItemContext(message.Author.Username + " initiated vote to kick " + tokick.Username + ".", defaultBrush, 1));
                      }));
 
                     voteKickInProgress = true;
@@ -812,7 +818,7 @@ namespace Cerberus_GUI2
 
                         await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                          {
-                             ConsoleBox.Items.Add(setupItemContext("Kicking " + tokick.Username + "...", 1));
+                             ConsoleBox.Items.Add(setupItemContext("Kicking " + tokick.Username + "...", Brushes.Red, 1));
                          }));
                         
                         await message.Channel.SendMessageAsync("Vote passed! Kicking " + tokick.Username + "...  **democracy!**");
@@ -911,7 +917,7 @@ namespace Cerberus_GUI2
 
                  await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                  {
-                     ConsoleBox.Items.Add(setupItemContext(message.Author.Username + " queried '" + query + "' in #" + message.Channel.Name + "\n" + luckyUrl, 1));
+                     ConsoleBox.Items.Add(setupItemContext(message.Author.Username + " queried '" + query + "' in #" + message.Channel.Name + "\n" + luckyUrl, defaultBrush, 1));
                  }));
                     
                 using (var httpclient = new System.Net.Http.HttpClient())
@@ -969,11 +975,12 @@ namespace Cerberus_GUI2
         }
 
         // Set up timestamp and copy to clipboard context menu items.
-        private ListBoxItem setupItemContext(string text, int flag)
+        private ListBoxItem setupItemContext(string text, Brush color, int flag)
         {
             // Create new listbox item and assign text value.
             ListBoxItem item = new ListBoxItem();
             item.Content = text;
+            
 
             // Create new context menu and menu items.
             ContextMenu itemContext = new ContextMenu();
@@ -993,6 +1000,7 @@ namespace Cerberus_GUI2
 
             // Add context menu to item.
             item.ContextMenu = itemContext;
+            item.Foreground = color;
 
             return item;
         }
@@ -1022,7 +1030,7 @@ namespace Cerberus_GUI2
             {
                 Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                 {
-                    ConsoleBox.Items.Add(setupItemContext("Vote to kick " + tokick.Username + " failed.", 1));
+                    ConsoleBox.Items.Add(setupItemContext("Vote to kick " + tokick.Username + " failed.", Brushes.Yellow, 1));
                 }));
 
                 lastchannel.SendMessageAsync("Kick failed. Not enough users voted.");
@@ -1076,7 +1084,7 @@ namespace Cerberus_GUI2
             }
 
             // Regurgitate output to GUI console.
-            ConsoleBox.Items.Add("Cerberus " + InputTextBox.Text);
+            ConsoleBox.Items.Add(setupItemContext("Cerberus " + InputTextBox.Text, defaultBrush, 1));
 
             // Reset input text box.
             InputTextBox.Clear();

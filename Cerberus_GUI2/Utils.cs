@@ -182,7 +182,7 @@ namespace Cerberus_GUI2
             foreach (SocketRole role in userRoles)
             {
                 // Check for roles with permission.
-                if (role.Name == "Mod" || role.Name == "Admin")
+                if (role.Name == "Mod" || role.Name == "Admin" || role.Name == "Bot")
                 {
                     return 1;
                 }
