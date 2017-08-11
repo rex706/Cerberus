@@ -19,7 +19,7 @@ namespace Cerberus_GUI2
                 return -1;
             if (x == UserStatus.Idle && y != UserStatus.Online)
                 return -1;
-            if (x == UserStatus.DoNotDisturb && (y != UserStatus.Online || y != UserStatus.Idle))
+            if (x == UserStatus.DoNotDisturb && (y != UserStatus.Online && y != UserStatus.Idle))
                 return -1;
             if (x == UserStatus.AFK && (y == UserStatus.Offline || y == UserStatus.Invisible))
                 return -1;

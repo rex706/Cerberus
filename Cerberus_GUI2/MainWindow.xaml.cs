@@ -165,7 +165,7 @@ namespace Cerberus_GUI2
             try
             {
                 // bot token
-                string token = "MjA2OTU1MjcwMzIzMTc1NDI2.C_JuKg.QQvyRkMFHDKoICJq7VweQ7mZYTU";
+                string token = TOKEN;
                 await client.LoginAsync(TokenType.Bot, token);
                 await client.StartAsync();
             }
@@ -326,27 +326,52 @@ namespace Cerberus_GUI2
 
         private Task UserUpdated(SocketUser arg1, SocketUser arg2)
         {
-            numUsers = 0;
-
             // Refresh users list box if someone has come online or gone offline.
-            if ((arg1.Status == UserStatus.Offline && arg2.Status == UserStatus.Online) || (arg1.Status == UserStatus.Online && arg2.Status == UserStatus.Offline))
+            if (arg1.Status != arg2.Status)
             {
+                numUsers = 0;
+
                 IEnumerable<SocketGuildUser> users = selectedGuild.Users;
+                var userList = users.ToList().OrderBy(i => i.Status, new UserStatusComparer()).ThenBy(i => i.Username);
 
-                Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+                UsersBox.Items.Clear();
+                    
+                // Load the user box with users.
+                foreach (SocketGuildUser user in userList)
                 {
-                    UsersBox.Items.Clear();
-
-                    // Load the user box with users.
-                    foreach (SocketGuildUser user in users)
+                    if (!user.IsBot /* && user.Status != UserStatus.Offline */)
                     {
-                        if (!user.IsBot && user.Status != UserStatus.Offline)
+                        Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                         {
-                            UsersBox.Items.Add(user);
-                            numUsers++;
-                        }
+                            if (user.Status == UserStatus.Offline)
+                            {
+                                UsersBox.Items.Add(setupUserItem(user, Brushes.Gray, 0));
+                            }
+                            else if (user.Status == UserStatus.Idle)
+                            {
+                                UsersBox.Items.Add(setupUserItem(user, Brushes.Orange, 0));
+                            }
+                            else if (user.Status == UserStatus.Online)
+                            {
+                                UsersBox.Items.Add(setupUserItem(user, defaultBrush, 0));
+                            }
+                            else if (user.Status == UserStatus.DoNotDisturb)
+                            {
+                                UsersBox.Items.Add(setupUserItem(user, Brushes.Red, 0));
+                            }
+                            else if (user.Status == UserStatus.AFK)
+                            {
+                                UsersBox.Items.Add(setupUserItem(user, Brushes.SteelBlue, 0));
+                            }
+                            else if (user.Status == UserStatus.Invisible)
+                            {
+                                UsersBox.Items.Add(setupUserItem(user, Brushes.MediumPurple, 0));
+                            }
+                        }));
+
+                        numUsers++;
                     }
-                }));
+                }
             }
 
             return Task.CompletedTask;
@@ -1017,12 +1042,13 @@ namespace Cerberus_GUI2
             return item;
         }
 
-        private ListBoxItem setupItemColor(string text, Brush textColor, int flag)
+        private ListBoxItem setupUserItem(SocketGuildUser user, Brush textColor, int flag)
         {
             // Create new listbox item and assign text value.
             ListBoxItem item = new ListBoxItem();
-            item.Content = text;
-
+            item.Content = user;
+            item.Tag = user.Id;
+            
             if (flag == 1)
             {
                 // Create new context menu and menu items.
@@ -1275,32 +1301,34 @@ namespace Cerberus_GUI2
                     if (!user.IsBot /* && user.Status != UserStatus.Offline */)
                     {
                         Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
-                        {
-                            if (user.Status == UserStatus.Offline)
-                            {
-                                UsersBox.Items.Add(setupItemColor(user.ToString(), Brushes.Gray, 0));
-                            }
-                            else if (user.Status == UserStatus.Idle)
-                            {
-                                UsersBox.Items.Add(setupItemColor(user.ToString(), Brushes.Orange, 0));
-                            }
-                            else if (user.Status == UserStatus.Online)
-                            {
-                                UsersBox.Items.Add(setupItemColor(user.ToString(), defaultBrush, 0));
-                            }
-                            else if (user.Status == UserStatus.DoNotDisturb)
-                            {
-                                UsersBox.Items.Add(setupItemColor(user.ToString(), Brushes.Red, 0));
-                            }
-                            else if (user.Status == UserStatus.AFK)
-                            {
-                                UsersBox.Items.Add(setupItemColor(user.ToString(), Brushes.SteelBlue, 0));
-                            }
-                            else if (user.Status == UserStatus.Invisible)
-                            {
-                                UsersBox.Items.Add(setupItemColor(user.ToString(), Brushes.MediumPurple, 0));
-                            }
-                        }));
+                       {
+                           //UsersBox.Items.Add(user);
+
+                           if (user.Status == UserStatus.Offline)
+                           {
+                               UsersBox.Items.Add(setupUserItem(user, Brushes.Gray, 0));
+                           }
+                           else if (user.Status == UserStatus.Idle)
+                           {
+                               UsersBox.Items.Add(setupUserItem(user, Brushes.Orange, 0));
+                           }
+                           else if (user.Status == UserStatus.Online)
+                           {
+                               UsersBox.Items.Add(setupUserItem(user, defaultBrush, 0));
+                           }
+                           else if (user.Status == UserStatus.DoNotDisturb)
+                           {
+                               UsersBox.Items.Add(setupUserItem(user, Brushes.Red, 0));
+                           }
+                           else if (user.Status == UserStatus.AFK)
+                           {
+                               UsersBox.Items.Add(setupUserItem(user, Brushes.SteelBlue, 0));
+                           }
+                           else if (user.Status == UserStatus.Invisible)
+                           {
+                               UsersBox.Items.Add(setupUserItem(user, Brushes.MediumPurple, 0));
+                           }
+                       }));
 
                         numUsers++;
                     }
@@ -1331,8 +1359,8 @@ namespace Cerberus_GUI2
             {
                 ChannelsBox.SelectedIndex = -1;
                 selectedChannel = null;
-                selectedUser = UsersBox.SelectedItem as SocketGuildUser;
-
+                ListBoxItem test = UsersBox.SelectedItem as ListBoxItem;
+                selectedUser = selectedGuild.GetUser(UInt64.Parse(test.Tag.ToString()));
                 InputTextBox.Clear();
                 InputTextBox.Text = "[" + selectedUser + "]: ";
             }
