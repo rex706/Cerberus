@@ -5,10 +5,32 @@ using System.IO.Compression;
 using System.Net;
 using System.Net.Sockets;
 using Discord.WebSocket;
+using Discord;
 
 namespace Cerberus_GUI2
 {
-    class Utils
+    public class UserStatusComparer : IComparer<UserStatus>
+    {
+        public int Compare(UserStatus x, UserStatus y)
+        {
+            if (x == y)
+                return 0;
+            if (x == UserStatus.Online && y != UserStatus.Online)
+                return -1;
+            if (x == UserStatus.Idle && y != UserStatus.Online)
+                return -1;
+            if (x == UserStatus.DoNotDisturb && (y != UserStatus.Online || y != UserStatus.Idle))
+                return -1;
+            if (x == UserStatus.AFK && (y == UserStatus.Offline || y == UserStatus.Invisible))
+                return -1;
+            if (x == UserStatus.Invisible && y == UserStatus.Offline)
+                return -1;
+
+            return 1;
+        }
+    }
+
+    public class Utils
     {
         public static string ServerStatus(string ServerIP, SocketTextChannel channel1)
         {
@@ -189,9 +211,7 @@ namespace Cerberus_GUI2
             }
 
             // Message author they don't have permission.
-            var DMChannel = await gUser.CreateDMChannelAsync();
-            await DMChannel.SendMessageAsync("You don't have permission to use that command!");
-            await DMChannel.CloseAsync();
+           await gUser.SendMessageAsync("You don't have permission to use that command!");
 
             return 0;
         }

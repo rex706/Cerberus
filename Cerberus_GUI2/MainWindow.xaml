@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:Cerberus_GUI2"
         mc:Ignorable="d"
         Loaded="MainWindow_Loaded"
-        Title="Cerberus" Height="825" Width="640" Background="#FF333638" ResizeMode="CanMinimize" Icon="Cerberus_300x300_circular.png">
+        Title="Cerberus" Height="950" Width="640" Background="#FF333638" ResizeMode="CanMinimize" Icon="Cerberus_300x300_circular.png" WindowStartupLocation="CenterScreen">
     <Grid>
         <TextBlock x:Name="TitleBox" HorizontalAlignment="Left" Margin="10,6,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Height="154" Width="604" FontSize="150" Text="Cerberus" FontFamily="Harlow Solid Italic" Foreground="#FF5B397E" TextAlignment="Center" FontStyle="Italic" TextDecorations="{x:Null}"/>
         <Menu x:Name="FileMenu" DockPanel.Dock="Top" Height="20" VerticalAlignment="Top">
@@ -29,19 +29,19 @@
         <CheckBox x:Name="PingServersCheckBox" Content="Ping Servers" HorizontalAlignment="Left" Margin="255,182,0,0" VerticalAlignment="Top" Foreground="White" Checked="PingServersCheckBox_Checked" Unchecked="PingServersCheckBox_Unchecked"/>
         <CheckBox x:Name="SafeSearchCheckBox" Content="Safe Search" HorizontalAlignment="Left" Margin="384,182,0,0" VerticalAlignment="Top" Background="White" Foreground="White" Checked="SafeSearchCheckBox_Checked" Unchecked="SafeSearchCheckBox_Unchecked" IsChecked="True"/>
         <CheckBox x:Name="SpamControlCheckBox" Content="Spam Control" HorizontalAlignment="Left" Margin="506,182,0,0" VerticalAlignment="Top" Foreground="White" Checked="SpamControlCheckBox_Checked" Unchecked="SpamControlCheckBox_Unchecked"/>
-        <TextBox x:Name="InputTextBox"  HorizontalAlignment="Left" Height="23" Margin="10,756,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="524" Foreground="#FFD1D1D1" Background="#FF111111">
-            <TextBox.InputBindings>
-                <KeyBinding  Key="Enter" />
-            </TextBox.InputBindings>
-        </TextBox>
-        <Button x:Name="SubmitButton" Content="Send" HorizontalAlignment="Left" Margin="539,758,0,0" VerticalAlignment="Top" Width="75" Click="SubmitButton_Click"/>
-        <ListBox x:Name="ConsoleBox" HorizontalContentAlignment="Stretch" ItemsSource="{Binding}" HorizontalAlignment="Left" Height="407" Margin="10,344,0,0" VerticalAlignment="Top" Width="604" Foreground="#FFD1D1D1" Background="#FF111111"/>
+        <Button x:Name="SubmitButton" Content="Send" HorizontalAlignment="Left" Margin="539,0,0,18" VerticalAlignment="Bottom" Width="75" Click="SubmitButton_Click"/>
+        <ListBox x:Name="ConsoleBox" HorizontalContentAlignment="Stretch" ItemsSource="{Binding}" HorizontalAlignment="Left" Margin="10,344,0,45" Width="604" Foreground="#FFD1D1D1" Background="#FF111111"/>
         <TextBlock x:Name="VersionBox"  HorizontalAlignment="Left" Margin="495,141,0,0" TextWrapping="Wrap" Text="{Binding}" VerticalAlignment="Top" Foreground="#FF5B397E" Width="84"/>
         <ListBox x:Name="GuildsBox" HorizontalAlignment="Left" Height="99" Margin="10,240,0,0" VerticalAlignment="Top" Width="200" Background="#FF111111" Foreground="#FFD1D1D1" SelectionChanged="GuildsBox_SelectionChanged"/>
         <ListBox x:Name="ChannelsBox" HorizontalAlignment="Left" Height="99" Margin="215,240,0,0" VerticalAlignment="Top" Width="198" Background="#FF111111" Foreground="#FFD1D1D1" SelectionChanged="ChannelsBox_SelectionChangedAsync"/>
         <ListBox x:Name="UsersBox" HorizontalAlignment="Left" Height="99" Margin="418,240,0,0" VerticalAlignment="Top" Width="196" Background="#FF111111" Foreground="#FFD1D1D1" SelectionChanged="UsersBox_SelectionChangedAsync"/>
         <TextBlock HorizontalAlignment="Left" Margin="10,219,0,0" TextWrapping="Wrap" Text="Guilds" VerticalAlignment="Top" Foreground="White" Width="200" TextAlignment="Center"/>
         <TextBlock HorizontalAlignment="Left" Margin="215,219,0,0" TextWrapping="Wrap" Text="Text Channels" VerticalAlignment="Top" Foreground="White" Width="198" TextAlignment="Center"/>
-        <TextBlock HorizontalAlignment="Left" Margin="418,219,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Foreground="White" Width="196" Height="16" TextAlignment="Center"><Run Text="Users"/><LineBreak/><Run/></TextBlock>
+        <TextBlock HorizontalAlignment="Left" Margin="418,219,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Foreground="White" Width="196" Height="16" TextAlignment="Center"/>
+        <TextBox x:Name="InputTextBox" TextWrapping="Wrap" Foreground="#FFD1D1D1" Background="#FF111111" Margin="10,0,100,17" Height="23" VerticalAlignment="Bottom">
+            <TextBox.InputBindings>
+                <KeyBinding  Key="Enter" />
+            </TextBox.InputBindings>
+        </TextBox>
     </Grid>
 </Window>
