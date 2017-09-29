@@ -6,12 +6,14 @@
         xmlns:local="clr-namespace:Cerberus_GUI2"
         mc:Ignorable="d"
         Loaded="MainWindow_Loaded"
-        Title="Cerberus" Height="950" Width="640" Background="#FF333638" ResizeMode="CanMinimize" Icon="Cerberus_300x300_circular.png" WindowStartupLocation="CenterScreen">
+        Title="Cerberus" Height="950" Width="646" Background="#FF333638" Icon="Cerberus_300x300_circular.png" WindowStartupLocation="CenterScreen" MinHeight="600" MaxWidth="646" MinWidth="646">
     <Grid>
-        <TextBlock x:Name="TitleBox" HorizontalAlignment="Left" Margin="10,6,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Height="154" Width="604" FontSize="150" Text="Cerberus" FontFamily="Harlow Solid Italic" Foreground="#FF5B397E" TextAlignment="Center" FontStyle="Italic" TextDecorations="{x:Null}"/>
+        <TextBlock x:Name="TitleBox" HorizontalAlignment="Left" Margin="10,3,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Height="154" Width="604" FontSize="150" Text="Cerberus" FontFamily="Harlow Solid Italic" Foreground="#FF5B397E" TextAlignment="Center" FontStyle="Italic" TextDecorations="{x:Null}"/>
         <Menu x:Name="FileMenu" DockPanel.Dock="Top" Height="20" VerticalAlignment="Top">
             <MenuItem Header="File">
                 <MenuItem Header="Add Guild" IsEnabled="False" />
+                <MenuItem Header="Login" Click="Login_Click"/>
+                <MenuItem Header="Logout" Click="Logout_Click"/>
                 <Separator />
                 <MenuItem Header="Exit" Click="ExitMenuItem_Click" />
             </MenuItem>
@@ -24,24 +26,34 @@
                 <Separator />
             </MenuItem>
         </Menu>
-        <CheckBox x:Name ="ChatLogCheckBox" Content="Log Chat" HorizontalAlignment="Left" Margin="26,182,0,0" VerticalAlignment="Top" Foreground="White" Checked="ChatLogCheckBox_Checked" Unchecked="ChatLogCheckBox_Unchecked"/>
-        <CheckBox x:Name="LogUsersCheckBox" Content="Log Users" HorizontalAlignment="Left" Margin="138,182,0,0" VerticalAlignment="Top" Foreground="White" Checked="LogUsersCheckBox_Checked" Unchecked="LogUsersCheckBox_Unchecked"/>
-        <CheckBox x:Name="PingServersCheckBox" Content="Ping Servers" HorizontalAlignment="Left" Margin="255,182,0,0" VerticalAlignment="Top" Foreground="White" Checked="PingServersCheckBox_Checked" Unchecked="PingServersCheckBox_Unchecked"/>
-        <CheckBox x:Name="SafeSearchCheckBox" Content="Safe Search" HorizontalAlignment="Left" Margin="384,182,0,0" VerticalAlignment="Top" Background="White" Foreground="White" Checked="SafeSearchCheckBox_Checked" Unchecked="SafeSearchCheckBox_Unchecked" IsChecked="True"/>
-        <CheckBox x:Name="SpamControlCheckBox" Content="Spam Control" HorizontalAlignment="Left" Margin="506,182,0,0" VerticalAlignment="Top" Foreground="White" Checked="SpamControlCheckBox_Checked" Unchecked="SpamControlCheckBox_Unchecked"/>
-        <Button x:Name="SubmitButton" Content="Send" HorizontalAlignment="Left" Margin="539,0,0,10" VerticalAlignment="Bottom" Width="75" Click="SubmitButton_Click"/>
-        <ListBox x:Name="ConsoleBox" HorizontalContentAlignment="Stretch" ItemsSource="{Binding}" HorizontalAlignment="Left" Margin="10,395,0,37" Width="604" Foreground="#FFD1D1D1" Background="#FF111111"/>
-        <TextBlock x:Name="VersionBox"  HorizontalAlignment="Left" Margin="495,141,0,0" TextWrapping="Wrap" Text="{Binding}" VerticalAlignment="Top" Foreground="#FF5B397E" Width="84"/>
+        <CheckBox x:Name ="ChatLogCheckBox" Content="Log Chat" HorizontalAlignment="Left" Margin="26,166,0,0" VerticalAlignment="Top" Foreground="White" Checked="ChatLogCheckBox_Checked" Unchecked="ChatLogCheckBox_Unchecked"/>
+        <CheckBox x:Name="LogUsersCheckBox" Content="Log Users" HorizontalAlignment="Left" Margin="138,166,0,0" VerticalAlignment="Top" Foreground="White" Checked="LogUsersCheckBox_Checked" Unchecked="LogUsersCheckBox_Unchecked"/>
+        <CheckBox x:Name="PingServersCheckBox" Content="Ping Servers" HorizontalAlignment="Left" Margin="255,166,0,0" VerticalAlignment="Top" Foreground="White" Checked="PingServersCheckBox_Checked" Unchecked="PingServersCheckBox_Unchecked"/>
+        <CheckBox x:Name="SafeSearchCheckBox" Content="Safe Search" HorizontalAlignment="Left" Margin="384,166,0,0" VerticalAlignment="Top" Background="White" Foreground="White" Checked="SafeSearchCheckBox_Checked" Unchecked="SafeSearchCheckBox_Unchecked" IsChecked="True"/>
+        <CheckBox x:Name="SpamControlCheckBox" Content="Spam Control" HorizontalAlignment="Left" Margin="506,166,0,0" VerticalAlignment="Top" Foreground="White" Checked="SpamControlCheckBox_Checked" Unchecked="SpamControlCheckBox_Unchecked"/>
+        <Button x:Name="SubmitButton" Content="Send" HorizontalAlignment="Left" Margin="545,0,0,10" VerticalAlignment="Bottom" Width="75" Click="SubmitButton_Click"/>
+        <ListBox x:Name="ConsoleBox" HorizontalContentAlignment="Stretch" ItemsSource="{Binding}" HorizontalAlignment="Left" Margin="10,395,0,37" Width="610" Foreground="#FFD1D1D1" Background="#FF111111"/>
+        <TextBlock x:Name="VersionBox" TextAlignment="Right" HorizontalAlignment="Right" Margin="0,141,72,0" TextWrapping="Wrap" Text="{Binding}" VerticalAlignment="Top" Foreground="#FF5B397E" Width="182"/>
         <ListBox x:Name="GuildsBox" HorizontalAlignment="Left" Height="150" Margin="10,240,0,0" VerticalAlignment="Top" Width="200" Background="#FF111111" Foreground="#FFD1D1D1" SelectionChanged="GuildsBox_SelectionChanged"/>
-        <ListBox x:Name="ChannelsBox" HorizontalAlignment="Left" Height="150" Margin="215,240,0,0" VerticalAlignment="Top" Width="198" Background="#FF111111" Foreground="#FFD1D1D1" SelectionChanged="ChannelsBox_SelectionChangedAsync"/>
-        <ListBox x:Name="UsersBox" HorizontalAlignment="Left" Height="150" Margin="418,240,0,0" VerticalAlignment="Top" Width="196" Background="#FF111111" Foreground="#FFD1D1D1" SelectionChanged="UsersBox_SelectionChangedAsync"/>
-        <TextBlock HorizontalAlignment="Left" Margin="10,219,0,0" TextWrapping="Wrap" Text="Guilds" VerticalAlignment="Top" Foreground="White" Width="200" TextAlignment="Center"/>
-        <TextBlock HorizontalAlignment="Left" Margin="215,219,0,0" TextWrapping="Wrap" Text="Text Channels" VerticalAlignment="Top" Foreground="White" Width="198" TextAlignment="Center"/>
-        <TextBlock HorizontalAlignment="Left" Margin="418,219,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Foreground="White" Width="196" Height="16" TextAlignment="Center" Text="Users"/>
-        <TextBox x:Name="InputTextBox" TextWrapping="Wrap" Foreground="#FFD1D1D1" Background="#FF111111" Margin="10,0,100,9" Height="23" VerticalAlignment="Bottom">
-            <TextBox.InputBindings>
-                <KeyBinding  Key="Enter" />
-            </TextBox.InputBindings>
-        </TextBox>
+        <ListBox x:Name="ChannelsBox" HorizontalAlignment="Left" Height="150" Margin="215,240,0,0" VerticalAlignment="Top" Width="200" Background="#FF111111" Foreground="#FFD1D1D1" SelectionChanged="ChannelsBox_SelectionChangedAsync"/>
+        <ListBox x:Name="UsersBox" HorizontalAlignment="Left" Height="150" Margin="420,240,0,0" VerticalAlignment="Top" Width="200" Background="#FF111111" Foreground="#FFD1D1D1" SelectionChanged="UsersBox_SelectionChangedAsync"/>
+        <TextBlock HorizontalAlignment="Left" Margin="10,193,0,0" TextWrapping="Wrap" Text="Guilds" VerticalAlignment="Top" Foreground="White" Width="200" TextAlignment="Center"/>
+        <TextBlock HorizontalAlignment="Left" Margin="215,193,0,0" TextWrapping="Wrap" Text="Text Channels" VerticalAlignment="Top" Foreground="White" Width="200" TextAlignment="Center"/>
+        <TextBlock HorizontalAlignment="Left" Margin="418,193,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Foreground="White" Width="200" Height="16" TextAlignment="Center" Text="Users"/>
+
+        <TextBox x:Name="GuildsSearchBox" HorizontalAlignment="Left" Height="23" Margin="10,212,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="200" Background="#FF111111" Foreground="#FFD1D1D1" VerticalContentAlignment="Center" TextChanged="GuildsSearchBox_TextChanged"/>
+        <TextBox x:Name="ChannelsSearchBox" HorizontalAlignment="Left" Height="23" Margin="215,212,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="200" Background="#FF111111" Foreground="#FFD1D1D1" VerticalContentAlignment="Center" TextChanged="ChannelsSearchBox_TextChanged"/>
+        <TextBox x:Name="UsersSearchBox" HorizontalAlignment="Left" Height="23" Margin="420,212,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="200" Background="#FF111111" Foreground="#FFD1D1D1" VerticalContentAlignment="Center" TextChanged="UsersSearchBox_TextChanged"/>
+        <Image HorizontalAlignment="Left" Height="14" Margin="189,216,0,0" VerticalAlignment="Top" Width="14" Source="search-icon-hi.png" IsHitTestVisible="False"/>
+        <Image HorizontalAlignment="Left" Height="14" Margin="396,216,0,0" VerticalAlignment="Top" Width="14" Source="search-icon-hi.png" IsHitTestVisible="False"/>
+        <Image HorizontalAlignment="Left" Height="14" Margin="600,216,0,0" VerticalAlignment="Top" Width="14" Source="search-icon-hi.png" IsHitTestVisible="False"/>
+        <DockPanel Margin="10,0,0,9" Width="530" Height="23" VerticalAlignment="Bottom" HorizontalAlignment="Left">
+            <TextBox x:Name="MessageRecieverTextBox" TextWrapping="Wrap" Foreground="#FFD1D1D1" Background="#FF111111" GotFocus="InputTextBox_GotFocus" VerticalContentAlignment="Center" IsReadOnly="True" Margin="0" Height="23" VerticalAlignment="Center" Visibility="Collapsed" ToolTip="Messages will be sent to this Channel or User"/>
+            <TextBox x:Name="InputTextBox" TextWrapping="Wrap" Foreground="#FFD1D1D1" Background="#FF111111" Height="23" VerticalAlignment="Center" GotFocus="InputTextBox_GotFocus" VerticalContentAlignment="Center">
+                <TextBox.InputBindings>
+                    <KeyBinding  Key="Enter" />
+                </TextBox.InputBindings>
+            </TextBox>
+        </DockPanel>
     </Grid>
 </Window>

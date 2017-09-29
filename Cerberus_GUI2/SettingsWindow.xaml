@@ -5,12 +5,18 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Cerberus_GUI2"
         mc:Ignorable="d"
-        Title="Settings" Height="428" Width="528" Background="#FF333638" ResizeMode="CanMinimize">
+        Title="Settings" Height="250" Width="370" Background="#FF333638" ResizeMode="CanMinimize">
     <Grid>
-        <ListBox x:Name="ChannelsBox" HorizontalAlignment="Left" Height="99" Margin="10,31,0,0" VerticalAlignment="Top" Width="198" Background="#FF111111" Foreground="#FFD1D1D1"/>
-        <TextBlock HorizontalAlignment="Left" Margin="10,10,0,0" TextWrapping="Wrap" Text="Text Channels" VerticalAlignment="Top" Foreground="White" Width="198" TextAlignment="Center"/>
-        <ListBox x:Name="ChannelsBox_Copy" HorizontalAlignment="Left" Height="99" Margin="213,31,0,0" VerticalAlignment="Top" Width="198" Background="#FF111111" Foreground="#FFD1D1D1"/>
-        <TextBlock HorizontalAlignment="Left" Margin="213,10,0,0" TextWrapping="Wrap" Text="Bypass Safe Search" VerticalAlignment="Top" Foreground="White" Width="198" TextAlignment="Center"/>
-
+        <TabControl HorizontalAlignment="Left" Height="195" Margin="10,10,0,0" VerticalAlignment="Top" Width="344" Background="{x:Null}">
+            <TabItem Header="Toggles">
+                <Grid Background="#FF333638">
+                    <CheckBox Content="Log Chat" HorizontalAlignment="Left" Margin="120,32,0,0" VerticalAlignment="Top" Foreground="White"/>
+                    <CheckBox Content="Log Users" HorizontalAlignment="Left" Margin="120,52,0,0" VerticalAlignment="Top" Foreground="White"/>
+                    <CheckBox Content="Ping Servers" HorizontalAlignment="Left" Margin="120,72,0,0" VerticalAlignment="Top" Foreground="White"/>
+                    <CheckBox Content="Safe Search" HorizontalAlignment="Left" Margin="120,92,0,0" VerticalAlignment="Top" Foreground="White"/>
+                    <CheckBox Content="Spam Control" HorizontalAlignment="Left" Margin="120,112,0,0" VerticalAlignment="Top" Foreground="White"/>
+                </Grid>
+            </TabItem>
+        </TabControl>
     </Grid>
 </Window>
