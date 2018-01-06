@@ -6,9 +6,26 @@ using System.Net;
 using System.Net.Sockets;
 using Discord.WebSocket;
 using Discord;
+using HtmlAgilityPack;
+using System.Windows;
+using Microsoft.Win32;
 
 namespace Cerberus_GUI2
 {
+
+    public class GameServer
+    {
+        public string Name { get; set; }
+
+        public string IP { get; set; }
+
+        public int Port { get; set; }
+
+        public string Status { get; set; }
+
+        public string Time { get; set; }
+    }
+
     public class UserStatusComparer : IComparer<UserStatus>
     {
         public int Compare(UserStatus x, UserStatus y)
@@ -32,6 +49,84 @@ namespace Cerberus_GUI2
 
     public class Utils
     {
+        public static int CheckRegistry()
+        {
+            // Parse the application exe name to create the correct key names. 
+            string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+            int exePos = exePath.LastIndexOf(".");
+            int slashPos = exePath.LastIndexOf(@"\") + 1;
+
+            string appName = exePath.Substring(slashPos, exePos - slashPos);
+
+            var key1 = Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION", appName + ".exe", null);
+            var key2 = Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION", appName + ".vshost.exe", null);
+
+            if (key1 == null || key2 == null)
+            {
+                AddIE11Registry(appName);
+            }
+
+            return 0;
+        }
+
+        public static int AddIE11Registry(string appName)
+        {
+            // Create keys in designated path.
+            RegistryKey defaultKey = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION");
+            RegistryKey vshostKey = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION");
+
+            // Set value to IE11 and set type to dword. 
+            defaultKey.SetValue(appName + ".exe", 0x00002af9, RegistryValueKind.DWord);
+            vshostKey.SetValue(appName + ".vshost.exe", 0x00002af9, RegistryValueKind.DWord);
+
+            return 0;
+        }
+
+        public static List<GameServer> ParseServers(string s)
+        {
+            TcpClient tcpClient = new TcpClient();
+            List<GameServer> gameServers = new List<GameServer>();
+
+            string[] servers = s.Split( new[] { Environment.NewLine }, StringSplitOptions.None);
+
+            foreach (string server in servers)
+            {
+                var gameServer = new GameServer();
+
+                try
+                {
+                    string[] info = server.Split(',');
+                    gameServer.Name = info[0];
+
+                    string[] info2 = info[1].Split(':');
+                    gameServer.IP = info2[0];
+                    gameServer.Port = Int32.Parse(info2[1]);
+
+                    if (tcpClient.ConnectAsync(gameServer.IP, gameServer.Port).Wait(3500))
+                    {
+                        // Server online.
+                        gameServer.Status = "Online";
+                        gameServer.Time = DateTime.UtcNow.ToString();
+                    }
+                    else
+                    {
+                        // Server offline.
+                        gameServer.Status = "Offline";
+                        gameServer.Time = "na";
+                    }
+                }
+                catch (Exception m)
+                {
+                    Console.WriteLine(m.Message);
+                }
+
+                gameServers.Add(gameServer);
+            }
+
+            return gameServers;
+        }
+
+        // Probably Obsolete
         public static string ServerStatus(string ServerIP, SocketTextChannel channel1)
         {
             Console.WriteLine("Checking severs...\n");
@@ -143,7 +238,7 @@ namespace Cerberus_GUI2
             }
         }
 
-        public static string GetHtmlCode(string s, bool safeSearch)
+        public static string GetSearchHtmlCode(string s, bool safeSearch)
         {
             string url;
             string data = "";
@@ -171,7 +266,7 @@ namespace Cerberus_GUI2
             return data;
         }
 
-        public static List<string> GetUrls(string html)
+        public static List<string> GetSearchResultUrls(string html)
         {
             var urls = new List<string>();
 
@@ -211,7 +306,7 @@ namespace Cerberus_GUI2
             }
 
             // Message author they don't have permission.
-           await gUser.SendMessageAsync("You don't have permission to use that command!");
+            await gUser.SendMessageAsync("You don't have permission to use that command!");
 
             return 0;
         }

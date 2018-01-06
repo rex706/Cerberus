@@ -5,18 +5,29 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Cerberus_GUI2"
         mc:Ignorable="d"
-        Title="Settings" Height="250" Width="370" Background="#FF333638" ResizeMode="CanMinimize">
+        Loaded="Window_Loaded"
+        Title="Settings" Height="231" Width="546" Background="#FF333638" ResizeMode="CanMinimize" WindowStartupLocation="CenterScreen">
     <Grid>
-        <TabControl HorizontalAlignment="Left" Height="195" Margin="10,10,0,0" VerticalAlignment="Top" Width="344" Background="{x:Null}">
-            <TabItem Header="Toggles">
-                <Grid Background="#FF333638">
-                    <CheckBox Content="Log Chat" HorizontalAlignment="Left" Margin="120,32,0,0" VerticalAlignment="Top" Foreground="White"/>
-                    <CheckBox Content="Log Users" HorizontalAlignment="Left" Margin="120,52,0,0" VerticalAlignment="Top" Foreground="White"/>
-                    <CheckBox Content="Ping Servers" HorizontalAlignment="Left" Margin="120,72,0,0" VerticalAlignment="Top" Foreground="White"/>
-                    <CheckBox Content="Safe Search" HorizontalAlignment="Left" Margin="120,92,0,0" VerticalAlignment="Top" Foreground="White"/>
-                    <CheckBox Content="Spam Control" HorizontalAlignment="Left" Margin="120,112,0,0" VerticalAlignment="Top" Foreground="White"/>
+        <TabControl x:Name="SettingsTabs" Margin="10" Background="{x:Null}">
+            <TabItem x:Name="Toggles" Header="Toggles">
+                <Grid Background="#FF333638" VerticalAlignment="Top" Margin="0,0,0,-2">
+                    <CheckBox x:Name="LogChatCheckBox" Content="Log Chat" HorizontalAlignment="Left" Margin="24,45,0,-7" VerticalAlignment="Top" Foreground="White" Padding="4,-1,20,0" Checked="LogChatCheckBox_Checked" Unchecked="LogChatCheckBox_Unchecked"/>
+                    <CheckBox x:Name="LogUsersCheckBox" Content="Log Users" HorizontalAlignment="Left" Margin="24,65,0,-27" VerticalAlignment="Top" Foreground="White" Padding="4,-1,20,0" Checked="LogUsersCheckBox_Checked" Unchecked="LogUsersCheckBox_Unchecked"/>
+                    <CheckBox x:Name="PingServersCheckBox" Content="Ping Servers" HorizontalAlignment="Left" Margin="325,10,0,0" VerticalAlignment="Top" Foreground="White" Padding="4,-1,20,0" Checked="PingServersCheckBox_Checked" Unchecked="PingServersCheckBox_Unchecked"/>
+                    <CheckBox x:Name="SafeSearchCheckBox" Content="Safe Search" HorizontalAlignment="Left" Margin="123,45,0,-7" VerticalAlignment="Top" Foreground="White" Padding="4,-1,20,0" Checked="SafeSearchCheckBox_Checked" Unchecked="SafeSearchCheckBox_Unchecked" ToolTip="Filter adult content for the '!find' command."/>
+                    <CheckBox x:Name="SpamControlTextBox" Content="Spam Control" HorizontalAlignment="Left" Margin="123,65,0,-27" VerticalAlignment="Top" Foreground="White" Padding="4,-1,20,0" Checked="SpamControlTextBox_Checked" Unchecked="SpamControlTextBox_Unchecked"/>
+                    <TextBox x:Name="IPTextBox" Height="84" Margin="262,30,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Background="#FF111111" Foreground="#FFD1D1D1" ToolTip="" HorizontalAlignment="Left" Width="211" AcceptsReturn="True"/>
+                    <Button x:Name="SaveServers" Content="Save" Margin="340,119,0,0" Click="SaveServers_Click" VerticalAlignment="Top" HorizontalAlignment="Left" Width="54"/>
+                    <CheckBox x:Name="IgnoreBotsCheckBox" Content="Ignore Bots" HorizontalAlignment="Left" Margin="24,85,0,0" VerticalAlignment="Top" Foreground="White" Padding="4,-1,20,0" ToolTip="Ignore input and messages from all Discord bots." Checked="IgnoreBotsCheckBox_Checked" Unchecked="IgnoreBotsCheckBox_Unchecked"/>
                 </Grid>
             </TabItem>
+            <TabItem x:Name="Token" Header="Token">
+                <Grid Background="#FF333638" VerticalAlignment="Top">
+                    <TextBox x:Name="TokenTextBox" Margin="10,58,10,0" TextWrapping="Wrap" Text="" Background="#FF111111" Foreground="#FFD1D1D1" HorizontalContentAlignment="Center" VerticalAlignment="Top" VerticalContentAlignment="Center"/>
+                    <Button x:Name="Save_Token" Content="Save" Click="Save_Token_Click" Margin="225,81,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Width="54"/>
+                </Grid>
+            </TabItem>
+
         </TabControl>
     </Grid>
 </Window>

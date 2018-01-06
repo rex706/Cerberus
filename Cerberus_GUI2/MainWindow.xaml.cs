@@ -1,12 +1,10 @@
 ﻿using Discord;
-using Discord.Rest;
 using Discord.WebSocket;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
@@ -17,6 +15,16 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 
+// TODO:
+// Finish server pinging. Probably should find a better way to streamline this process.
+// Find a way to have a dynamic amount of timers in different situations.
+// Implement 'Add Guild'.
+// Jail timer and saving info.
+// Decide wether or not to keep full fledged steam market scraping.
+//  - Searching
+//  - Comparing?
+//  - Graphs?
+
 namespace Cerberus_GUI2
 {
     /// <summary>
@@ -24,26 +32,25 @@ namespace Cerberus_GUI2
     /// </summary>
     public partial class MainWindow : Window
     {
-        private DiscordSocketClient client;
+        private static DiscordSocketClient client;
 
         private static string versionURL = "http://textuploader.com/drwm9/raw";
 
         private static ISocketMessageChannel lastchannel;
 
         private static string token = "TOKEN";
-        private static string ServerIP = "50.89.243.222";
-        private static string lastSuccessfulPing = "never";
         private static string afkChannelName = "💤 AFK";
         private static string jailRoleName = "Inmate";
         private static string errorMsg = "Something went wrong :confused: Please try again!";
 
-        private static Timer kickTimer;
+        private static System.Timers.Timer kickTimer;
         private static bool kickTimerRunning = false;
         private static HashSet<string> votedUsers;
 
-        private static Timer autoPingTimer;
-        private static Timer spamTimer;
-        private static Timer jailCheckTimer;
+        public static System.Timers.Timer autoPingTimer;
+        public static System.Timers.Timer spamTimer;
+        public static System.Timers.Timer jailCheckTimer;
+        public static System.Timers.Timer gamescomTimer;
 
         private static int numUsers;
         private static int democracy;
@@ -52,11 +59,13 @@ namespace Cerberus_GUI2
 
         private static bool voteKickInProgress = false;
 
-        private static bool logChat = false;
-        private static bool serverPing = false;
-        private static bool safeSearch = false;
-        private static bool logUsers = false;
-        private static bool antiSpam = false;
+        public static bool logChat = false;
+        public static bool serverPing = false;
+        public static bool safeSearch = false;
+        public static bool logUsers = false;
+        public static bool antiSpam = false;
+        public static bool ignoreBots = false;
+        private static bool connected = false;
 
         private static HashSet<string> userSet;
         private static HashSet<string> blackList;
@@ -65,10 +74,6 @@ namespace Cerberus_GUI2
         private static LinkedList<string> userSpamQueue = new LinkedList<string>();
 
         private static SocketGuild threefourteen;
-        private static SocketTextChannel generalChannel;
-        private static SocketTextChannel minecraftChannel;
-        private static SocketTextChannel mod_chat;
-        private static SocketTextChannel devChannel;
         private static SocketTextChannel jailTextChannel;
 
         private static SocketGuild selectedGuild;
@@ -77,9 +82,6 @@ namespace Cerberus_GUI2
         private static SocketVoiceChannel jailVoiceChannel;
 
         private static Brush defaultBrush;
-
-        private static int connectionCount;
-        private static bool connected = false;
 
         public MainWindow()
         {
@@ -106,28 +108,6 @@ namespace Cerberus_GUI2
                 ver.Click += Ver_Click;
                 ver.IsEnabled = true;
             }
-
-            InputTextBox.KeyDown += new KeyEventHandler(tb_KeyDown);
-
-            // Set up the default brush color used for the console.
-            var converter = new System.Windows.Media.BrushConverter();
-            defaultBrush = (Brush)converter.ConvertFromString("#FFD1D1D1");
-
-            LoginClient();
-
-            // Block this task until the program is closed.
-            await Task.Delay(-1);
-        }
-
-        private async void LoginClient()
-        {
-            ConsoleBox.Items.Add("Creating Client");
-
-            client = new DiscordSocketClient();
-
-            userSet = new HashSet<string>();
-            blackList = new HashSet<string>();
-            connectionCount = 0;
 
             // Load user names text file
             if (!File.Exists("user_names.txt"))
@@ -161,15 +141,92 @@ namespace Cerberus_GUI2
                 file.Close();
             }
 
+            ConsoleBox.Items.Add("Loading settings");
+
+            // Create settings file if it doesn't exist.
+            // Load settings file otherwise. 
+            if (!File.Exists("settings.ini"))
+            {
+                var settingsFile = new IniFile("settings.ini");
+                settingsFile.Write("Version", AssemblyVer, "System");
+                settingsFile.Write("Log Chat", "False", "Settings");
+                settingsFile.Write("Log Users", "False", "Settings");
+                settingsFile.Write("Ping Servers", "False", "Settings");
+                settingsFile.Write("Safe Search", "False", "Settings");
+                settingsFile.Write("Spam Control", "False", "Settings");
+                settingsFile.Write("Ignore Bots", "False", "Settings");
+
+                // Force user to enter a token in the settings window.
+                while (!settingsFile.KeyExists("Token", "Settings") || token.Length < 8)
+                {
+                    var settingsWindow = new SettingsWindow();
+                    settingsWindow.SettingsTabs.SelectedIndex = 1;
+                    settingsWindow.ShowDialog();
+                    token = settingsFile.Read("Token", "Settings");
+                }
+            }
+            else
+            {
+                var settingsFile = new IniFile("settings.ini");
+
+                // Force user to enter a token in the settings window if ini key does not exist or the token length is too short.
+                while (!settingsFile.KeyExists("Token", "Settings") || settingsFile.Read("Token", "Settings").Length < 8)
+                {
+                    var settingsWindow = new SettingsWindow();
+                    settingsWindow.SettingsTabs.SelectedIndex = 1;
+                    settingsWindow.ShowDialog();
+                    token = settingsFile.Read("Token", "Settings");
+                }
+
+                token = settingsFile.Read("Token", "Settings");
+                logChat = Convert.ToBoolean(settingsFile.Read("Log Chat", "Settings"));
+                logUsers = Convert.ToBoolean(settingsFile.Read("Log Users", "Settings"));
+                serverPing = Convert.ToBoolean(settingsFile.Read("Ping Servers", "Settings"));
+                safeSearch = Convert.ToBoolean(settingsFile.Read("Safe Search", "Settings"));
+                antiSpam = Convert.ToBoolean(settingsFile.Read("Spam Control", "Settings"));
+                ignoreBots = Convert.ToBoolean(settingsFile.Read("Ignore Bots", "Settings"));
+            }
+
+            // Make sure IE11 registry exists for some web checking commands.
+            Utils.CheckRegistry();
+
+            // Create event handler for when the enter key is pushed while the input text box is in focus. 
+            InputTextBox.KeyDown += new KeyEventHandler(tb_KeyDown);
+
+            // Set up the default brush color used for the console.
+            defaultBrush = (Brush)new BrushConverter().ConvertFromString("#FFD1D1D1");
+
+            // Connect the bot client.
+            LoginClient();
+
+            // Block this task until the program is closed.
+            await Task.Delay(-1);
+        }
+
+        private async void LoginClient()
+        {
+            // Create new Discord client and initialize any remaining global variables. 
+            ConsoleBox.Items.Add("Creating Client");
+
+            client = new DiscordSocketClient();
+
+            userSet = new HashSet<string>();
+            blackList = new HashSet<string>();
+
             // Define Events
             ConsoleBox.Items.Add("Defining Events");
+
             client.MessageReceived += MessageRecieved;
-            //client.MessageDeleted += MessageDeleted;
-            client.UserJoined += UserJoinedAsync;
             client.UserVoiceStateUpdated += UserVoiceStateUpdated;
             client.GuildMemberUpdated += GuildUserUpdated;
             client.Disconnected += ClientDisconnected;
             client.Connected += ClientConnected;
+            client.Ready += ClientReady;
+            client.ChannelUpdated += ChannelUpdated;
+            client.ChannelCreated += ChannelCreated;
+            client.ChannelDestroyed += ChannelDestroyed;
+            //client.MessageDeleted += MessageDeleted;
+            //client.UserJoined += UserJoinedAsync;
 
             // Connect bot and start timers
             ConsoleBox.Items.Add("Connecting...");
@@ -181,71 +238,43 @@ namespace Cerberus_GUI2
             }
             catch (Exception m)
             {
-                ConsoleBox.Items.Add(setupItemContext(m.Message, Brushes.Red, 1));
+                ConsoleBox.Items.Add(setupItemContext(m.Message, Brushes.Red, new int[] { 1 }));
             }
         }
 
         private Task ClientConnected()
         {
+            Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+            {
+                ConsoleBox.Items.Add(setupItemContext("Client connected!", Brushes.LimeGreen, new int[] {}));
+            }));
+
+            return Task.CompletedTask;
+        }
+
+        private Task ClientReady()
+        {
             if (connected == false)
             {
                 connected = true;
 
-                client.Ready += () =>
-                {
-                // Done!
-                Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
-                    {
-                        if (connectionCount == 0)
-                        {
-                            ConsoleBox.Items.Add(setupItemContext("Client connected!", Brushes.LimeGreen, 0));
-                        }
-                        else
-                        {
-                            if (ConsoleBox.Items[ConsoleBox.Items.Count - 1].ToString() != "--------------------")
-                                ConsoleBox.Items.Add("--------------------");
-
-                            ConsoleBox.Items.Add(setupItemContext("Client reconnected!", Brushes.LimeGreen, 0));
-                        }
-
-                        ConsoleBox.Items.Add("--------------------");
-
-                        connectionCount++;
-                    }));
-
-                // Get important channels.
+                // Get important channels. Should probably not do this.
                 threefourteen = client.GetGuild(97459030741508096);
-                    generalChannel = client.GetChannel(97459030741508096) as SocketTextChannel;
-                    minecraftChannel = client.GetChannel(206980643148529665) as SocketTextChannel;
-                    mod_chat = client.GetChannel(236670943387320333) as SocketTextChannel;
-                    devChannel = client.GetChannel(206951913789325312) as SocketTextChannel;
-                    jailTextChannel = client.GetChannel(311291896733499403) as SocketTextChannel;
-                    jailVoiceChannel = client.GetChannel(207717697331527681) as SocketVoiceChannel;
+                jailTextChannel = client.GetChannel(311291896733499403) as SocketTextChannel;
+                jailVoiceChannel = client.GetChannel(207717697331527681) as SocketVoiceChannel;
 
-                    IEnumerable<SocketGuild> guilds = client.Guilds;
-                    var guildList = guilds.ToList().OrderBy(i => i.Name);
+                refreshGuilds();
 
-                    Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
-                    {
-                        GuildsBox.Items.Clear();
-                        GuildsBox.SelectedIndex = -1;
-
-                        ChannelsBox.Items.Clear();
-                        ChannelsBox.SelectedIndex = -1;
-
-                        UsersBox.Items.Clear();
-                        UsersBox.SelectedIndex = -1;
-
-                    // Fill guild box with guilds.
-                    foreach (SocketGuild guild in guildList)
-                        {
-                            GuildsBox.Items.Add(guild);
-                        }
-                    }));
-
-                    return Task.CompletedTask;
-                };
+                Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+                {
+                    ConsoleBox.Items.Add(setupItemContext("Ready!", defaultBrush, new int[] {}));
+                    ConsoleBox.Items.Add("--------------------");
+                }));
             }
+
+            gamescomTimer = new System.Timers.Timer(1.8e+6); // 30 minutes
+            gamescomTimer.Elapsed += GamescomTimer_ElapsedAsync;
+            gamescomTimer.Start();
 
             return Task.CompletedTask;
         }
@@ -261,7 +290,7 @@ namespace Cerberus_GUI2
                     if (ConsoleBox.Items[ConsoleBox.Items.Count - 1].ToString() != "--------------------")
                         ConsoleBox.Items.Add("--------------------");
 
-                    ConsoleBox.Items.Add(setupItemContext("Client disconnected.", Brushes.Red, 0));
+                    ConsoleBox.Items.Add(setupItemContext("Client disconnected.", Brushes.Red, new int[] {}));
                     ConsoleBox.Items.Add("--------------------");
                 }));
             }
@@ -276,7 +305,7 @@ namespace Cerberus_GUI2
             {
                 Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                 {
-                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " joined " + arg3.VoiceChannel.Name + ".", Brushes.Gray, 1));
+                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " joined " + arg3.VoiceChannel.Name + ".", Brushes.Gray, new int[] { 1 }));
                 }));
 
                 if (logChat)
@@ -287,15 +316,13 @@ namespace Cerberus_GUI2
                     }
                 }
 
-                //threefourteen.DefaultChannel.SendMessageAsync("Welcome back, " + arg1.Username + "!");
-
                 if (logUsers)
                 {
                     if (userSet.Add(arg1.Username))
                     {
                         Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                         {
-                            ConsoleBox.Items.Add(setupItemContext("Added " + arg1.Username + " to HashSet", Brushes.Gray, 1));
+                            ConsoleBox.Items.Add(setupItemContext("Added " + arg1.Username + " to HashSet", Brushes.Gray, new int[] { 1 }));
                         }));
                         
                         using (StreamWriter file = File.AppendText("user_names.txt"))
@@ -311,7 +338,7 @@ namespace Cerberus_GUI2
             {
                 Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                 {
-                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " left.", Brushes.Gray, 1));
+                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " left.", Brushes.Gray, new int[] { 1 }));
                 }));
 
                 if (logChat)
@@ -328,7 +355,7 @@ namespace Cerberus_GUI2
             {
                 Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                 {
-                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " went afk.", Brushes.Gray, 1));
+                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " went afk.", Brushes.Gray, new int[] { 1 }));
                 }));
 
                 if (logChat)
@@ -345,8 +372,8 @@ namespace Cerberus_GUI2
             {
                 Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                 {
-                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " is no longer afk.", Brushes.Gray, 1));
-                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " joined " + arg3.VoiceChannel.Name + ".", Brushes.Gray, 1));
+                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " is no longer afk.", Brushes.Gray, new int[] { 1 }));
+                    ConsoleBox.Items.Add(setupItemContext(arg1.Username + " joined " + arg3.VoiceChannel.Name + ".", Brushes.Gray, new int[] { 1 }));
                 }));
 
                 if (logChat)
@@ -362,59 +389,138 @@ namespace Cerberus_GUI2
             return Task.CompletedTask;
         }
 
+        private Task ChannelDestroyed(SocketChannel arg)
+        {
+            refreshChannels();
+
+            return Task.CompletedTask;
+        }
+
+        private Task ChannelCreated(SocketChannel arg)
+        {
+            refreshChannels();
+
+            return Task.CompletedTask;
+        }
+
+        private Task ChannelUpdated(SocketChannel arg1, SocketChannel arg2)
+        {
+            refreshChannels();
+
+            return Task.CompletedTask;
+        }
+
+        // Refresh Guilds listbox.
+        private int refreshGuilds()
+        {
+            IEnumerable<SocketGuild> guilds = client.Guilds;
+            var guildList = guilds.ToList().OrderBy(i => i.Name);
+
+            Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+            {
+                GuildsBox.Items.Clear();
+                GuildsBox.SelectedIndex = -1;
+
+                // Fill guild box with guilds from search.
+                foreach (SocketGuild guild in guildList)
+                {
+                    if ((GuildsSearchBox.Text.Length > 0 && guild.Name.ToLower().Contains(GuildsSearchBox.Text.ToLower())) || GuildsSearchBox.Text.Length == 0)
+                    {
+                        GuildsBox.Items.Add(guild);
+                    }      
+                }
+            }));
+
+            return client.Guilds.Count();
+        }
+
+        // Refresh Channels list box.
+        private int refreshChannels()
+        {
+            int counter = 0;
+
+            IEnumerable<SocketGuildChannel> channels = selectedGuild.Channels;
+            var channelList = channels.ToList().OrderBy(i => i.Name);
+
+            Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+            {
+                ChannelsBox.Items.Clear();
+                ChannelsBox.SelectedIndex = -1;
+
+                foreach (SocketGuildChannel channel in channelList)
+                {
+                    var textChannel = channel as SocketTextChannel;
+
+                    if (textChannel != null && (ChannelsSearchBox.Text.Length > 0 && textChannel.Name.ToLower().Contains(ChannelsSearchBox.Text.ToLower()) || ChannelsSearchBox.Text.Length == 0))
+                    {
+                        ChannelsBox.Items.Add(channel);
+                        counter++;
+                    }
+                }
+            }));
+
+            return counter;
+        }
+
+        // Refresh Users list box.
+        private int refreshUsers()
+        {
+            IEnumerable<SocketGuildUser> users = selectedGuild.Users;
+            var userList = users.ToList().OrderBy(i => i.Status, new UserStatusComparer()).ThenBy(i => i.Username);
+
+            Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+            {
+                UsersBox.Items.Clear();
+
+                // Load the user box with users.
+                foreach (SocketGuildUser user in userList)
+                {
+                    if (!user.IsBot)
+                    {
+                        if ((UsersSearchBox.Text.Length > 0 && user.Username.ToLower().Contains(UsersSearchBox.Text.ToLower())) || UsersSearchBox.Text.Length == 0)
+                        {
+                            if (user.Status == UserStatus.Offline)
+                            {
+                                UsersBox.Items.Add(setupUserItem(user, Brushes.Gray, new int[] { 2 }));
+                            }
+                            else if (user.Status == UserStatus.Idle)
+                            {
+                                UsersBox.Items.Add(setupUserItem(user, Brushes.Orange, new int[] { 2 }));
+                            }
+                            else if (user.Status == UserStatus.Online)
+                            {
+                                UsersBox.Items.Add(setupUserItem(user, defaultBrush, new int[] { 2 }));
+                            }
+                            else if (user.Status == UserStatus.DoNotDisturb)
+                            {
+                                UsersBox.Items.Add(setupUserItem(user, Brushes.Red, new int[] { 2 }));
+                            }
+                            else if (user.Status == UserStatus.AFK)
+                            {
+                                UsersBox.Items.Add(setupUserItem(user, Brushes.SteelBlue, new int[] { 2 }));
+                            }
+                            else if (user.Status == UserStatus.Invisible)
+                            {
+                                UsersBox.Items.Add(setupUserItem(user, Brushes.MediumPurple, new int[] { 2 }));
+                            }
+                        }
+                    }
+                }
+            }));
+
+            return users.Count();
+        }
+
+        // Refresh users list box if someone has changed online status in the selected guild.
         private Task GuildUserUpdated(SocketUser arg1, SocketUser arg2)
         {
             if (selectedGuild != null)
             {
-                // Refresh users list box if someone has come online or gone offline.
-                if (arg1.Status != arg2.Status)
+                var user = selectedGuild.GetUser(arg1.Id);
+
+                if (user != null && arg1.Status != arg2.Status)
                 {
-                    numUsers = 0;
-
-                    IEnumerable<SocketGuildUser> users = selectedGuild.Users;
-                    var userList = users.ToList().OrderBy(i => i.Status, new UserStatusComparer()).ThenBy(i => i.Username);
-
-                    Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
-                    {
-                        UsersBox.Items.Clear();
-
-                        // Load the user box with users.
-                        foreach (SocketGuildUser user in userList)
-                        {
-                            if (!user.IsBot /* && user.Status != UserStatus.Offline */)
-                            {
-                                if ((UsersSearchBox.Text.Length > 0 && user.Username.ToLower().Contains(UsersSearchBox.Text.ToLower())) || UsersSearchBox.Text.Length == 0)
-                                {
-                                    if (user.Status == UserStatus.Offline)
-                                    {
-                                        UsersBox.Items.Add(setupUserItem(user, Brushes.Gray, 2));
-                                    }
-                                    else if (user.Status == UserStatus.Idle)
-                                    {
-                                        UsersBox.Items.Add(setupUserItem(user, Brushes.Orange, 2));
-                                    }
-                                    else if (user.Status == UserStatus.Online)
-                                    {
-                                        UsersBox.Items.Add(setupUserItem(user, defaultBrush, 2));
-                                    }
-                                    else if (user.Status == UserStatus.DoNotDisturb)
-                                    {
-                                        UsersBox.Items.Add(setupUserItem(user, Brushes.Red, 2));
-                                    }
-                                    else if (user.Status == UserStatus.AFK)
-                                    {
-                                        UsersBox.Items.Add(setupUserItem(user, Brushes.SteelBlue, 2));
-                                    }
-                                    else if (user.Status == UserStatus.Invisible)
-                                    {
-                                        UsersBox.Items.Add(setupUserItem(user, Brushes.MediumPurple, 2));
-                                    }
-                                }
-
-                                numUsers++;
-                            }
-                        }
-                    }));
+                    numUsers = refreshUsers();
                 } 
             }
 
@@ -434,7 +540,7 @@ namespace Cerberus_GUI2
             {
                 try
                 {
-                    ConsoleBox.Items.Add(setupItemContext("Deleted: " + deleted.Author.Username + ": " + deleted.Content, Brushes.Orange, 1));
+                    ConsoleBox.Items.Add(setupItemContext("Deleted: " + deleted.Author.Username + ": " + deleted.Content, Brushes.Orange, new int[] { 1 }));
                 }
                 catch (Exception m)
                 {
@@ -493,48 +599,43 @@ namespace Cerberus_GUI2
                 return;
             }
 
-            // Record to text file if not bot.
-            if (!message.Author.IsBot || message.Content.Contains(errorMsg))
+            // Record to console and/or text file if not bot.
+            if (!message.Author.IsBot || (message.Author.IsBot && ignoreBots == false) /*|| message.Content.Contains(errorMsg)*/)
             {
                 await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
-                 {
-                     if (message.Attachments.Count > 0)
-                         ConsoleBox.Items.Add(setupItemContext(message.Author.Username + " [" + message.Channel.Name + "]: (attachment) " + message.Content, defaultBrush, 1));
-                     else
-                         ConsoleBox.Items.Add(setupItemContext(message.Author.Username + " [" + message.Channel.Name + "]: " + message.Content, defaultBrush, 1));
-                 }));
+                {
+                    if (message.Author.IsBot)
+                        ConsoleBox.Items.Add(setupItemContext(message, (Brush)new BrushConverter().ConvertFromString("#9b59b6"), new int[] { 1, 2 }));
+                    else
+                        ConsoleBox.Items.Add(setupItemContext(message, Brushes.White, new int[] { 1, 2 }));
+                }));
 
                 if (logChat)
                 {
-                    if (!File.Exists("chat_log.txt"))
+                    using (StreamWriter file = File.AppendText("chat_log.txt"))
                     {
-                        using (StreamWriter file = File.CreateText("chat_log.txt"))
-                        {
-                            if (message.Attachments.Count > 0)
-                                file.WriteLine(message.Author.Username + " [" + message.Channel.Name + "]: (attachment) " + message.Content);
-                            else
-                                file.WriteLine(message.Author.Username + " [" + message.Channel.Name + "]: " + message.Content);
+                        if (message.Attachments.Count > 0)
+                            file.WriteLine(message.Author.Username + ": [attachment] " + message.Content);
+                        else
+                            file.WriteLine(message.Author.Username + ": " + message.Content);
 
-                            file.Close();
-                        }
-                    }
-                    else
-                    {
-                        using (StreamWriter file = File.AppendText("chat_log.txt"))
-                        {
-                            if (message.Attachments.Count > 0)
-                                file.WriteLine(message.Author.Username + " [" + message.Channel.Name + "]: [attachment] " + message.Content);
-                            else
-                                file.WriteLine(message.Author.Username + " [" + message.Channel.Name + "]: " + message.Content);
-
-                            file.Close();
-                        }
+                        file.Close();
                     }
                 }
             }
 
+            // Split message by spaces once here so we can use all of it's parts easier and more efficiently.
+            string[] splitMessage = message.Content.ToLower().Split(' ');
+
+            // If a command was used, it will be the fist string of the message.
+            string command = splitMessage[0];
+            bool isCommand = false;
+
+            if (command[0] == '!' && !message.Author.IsBot)
+                isCommand = true;
+
             // Display help menu.
-            if (!message.Author.IsBot && message.Content == "!help")
+            if (isCommand == true && command == "!help")
             {
                 await message.Channel.SendMessageAsync("\n\n```css\n#UserCommands```\n" +
                 "!help - help menu. (you are here)\n\n" +
@@ -550,12 +651,12 @@ namespace Cerberus_GUI2
                 "!member - grant all users 'Member' role. (mod only) \n\n" +
                 "!minecraft - minecraft server status.\n" +
                 "!starbound - starbound server status.\n"+
-                "!PUBG [player name] [mode] - Check the ranking of a player an a given game mode.\n\n" +
+                "!pubg [player name] [mode] - Check the ranking of a player an a given game mode.\n\n" +
                 "https://github.com/rex706/Cerberus");
             }
 
             // Give all users 'member' role.
-            if (!message.Author.IsBot && message.Content == "!member")
+            else if (isCommand == true && command == "!member")
             {
                 int permission = await Utils.CheckPermissionAsync(threefourteen, message.Author);
                 
@@ -580,13 +681,13 @@ namespace Cerberus_GUI2
 
                     await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                      {
-                         ConsoleBox.Items.Add(setupItemContext("Member role given to all users!", defaultBrush, 1));
+                         ConsoleBox.Items.Add(setupItemContext("Member role given to all users!", defaultBrush, new int[] { 1 }));
                      }));
                 }
             }
 
             // Toggle spam control mode.
-            if (!message.Author.IsBot && message.Content == "!spam")
+            else if (isCommand == true && command == "!spam")
             {
                 int permission = await Utils.CheckPermissionAsync(threefourteen, message.Author);
 
@@ -598,8 +699,8 @@ namespace Cerberus_GUI2
 
                         await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                         {
-                            SpamControlCheckBox.IsChecked = true;
-                            ConsoleBox.Items.Add(setupItemContext(message.Author + " has enabled spam control.", defaultBrush, 1));
+                            antiSpam = true;
+                            ConsoleBox.Items.Add(setupItemContext(message.Author.ToString() + " has enabled spam control.", defaultBrush, new int[] { 1 }));
                         }));
                     }
                     else
@@ -608,15 +709,15 @@ namespace Cerberus_GUI2
 
                         await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                         {
-                            SpamControlCheckBox.IsChecked = false;
-                            ConsoleBox.Items.Add(setupItemContext(message.Author + " has disabled spam control.", defaultBrush, 1));
+                            antiSpam = false;
+                            ConsoleBox.Items.Add(setupItemContext(message.Author.ToString() + " has disabled spam control.", defaultBrush, new int[] { 1 }));
                         }));
                     }
                 }
             }
 
             // Check for blacklisted users.
-            if (!message.Author.IsBot && message.Content == "!blacklist")
+            else if (isCommand == true && message.Content == "!blacklist")
             {
                 if (blackList.Count == 0)
                 {
@@ -634,7 +735,7 @@ namespace Cerberus_GUI2
             }
 
             // Blacklist a user from using Cerberus commands. (Mod only)
-            if (!message.Author.IsBot && message.Content.Contains("!blacklist") && message.Content.Length > 14)
+            else if (isCommand == true && command == "!blacklist" && message.Content.Length > 14)
             {
                 int hasPermission = await Utils.CheckPermissionAsync(threefourteen, message.Author);
                 var mentionedUsers = message.MentionedUsers;
@@ -658,7 +759,7 @@ namespace Cerberus_GUI2
 
                         await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                         {
-                            ConsoleBox.Items.Add(setupItemContext(user.ToString() + " has been blacklisted from Cerberus by " + message.Author.Username, Brushes.Orange, 1));
+                            ConsoleBox.Items.Add(setupItemContext(user.ToString() + " has been blacklisted from Cerberus by " + message.Author.Username, Brushes.Orange, new int[] { 1 }));
                         }));
                     }
                 }
@@ -668,7 +769,12 @@ namespace Cerberus_GUI2
                 }
             }
 
-            if (!message.Author.IsBot && message.Content == "!tits")
+            else if (isCommand == true && message.Content == "!dayz")
+            {
+                await message.Channel.SendMessageAsync("The current DayZ HQ is located at: **035 059** on public official server **DayZ IL 2-1 (Public/Veteran) - Hosted by GameServers.com**");
+            }
+
+            else if (isCommand == true && message.Content == "!tits")
             {
                 using (var httpclient = new System.Net.Http.HttpClient())
                 {
@@ -677,64 +783,68 @@ namespace Cerberus_GUI2
                 }
             }
 
-            // Ping minecraft server
-            if (!message.Author.IsBot && message.Content == "!minecraft")
+            else if (isCommand == true && command == "!gamescom")
             {
-                if (File.Exists("data.ini"))
-                {
-                    var data = new IniFile("data.ini");
-                    lastSuccessfulPing = data.Read("Minecraft", "data");
-                }
-
-                TcpClient MinecraftServer = new TcpClient();
-
-
-                if (!MinecraftServer.ConnectAsync(ServerIP, 25565).Wait(3500))
-                {
-                    await message.Channel.SendMessageAsync("Minecraft Server \n\n```css\n:OFFLINE``` \nLast successful ping: **" + lastSuccessfulPing +
-                        "**\n\nCould just be ping issue? Try again in a few seconds.\nIf connection continues to fail, try again later.");
-                }
-                else
-                {
-                    await message.Channel.SendMessageAsync("Minecraft Server \n\n```css\n.:ONLINE  -  " + ServerIP + ":25565```");
-
-                    var data = new IniFile("data.ini");
-                    lastSuccessfulPing = DateTime.Now.ToString();
-                    data.Write("Minecraft", lastSuccessfulPing, "data");
-                }
+                await SteamMarketScrape.GetGamescomInfoAsync(message.Channel, true);
             }
 
-            // Ping starbound server
-            if (!message.Author.IsBot && message.Content == "!starbound")
+            //else if (isCommand == true && command == "!pricecheck" && splitMessage.Length > 1)
+            //{
+            //    StringBuilder builder = new StringBuilder();
+
+            //    for(int i = 1; i < splitMessage.Length; i++)
+            //    {
+            //        if (i == splitMessage.Length - 1)
+            //            builder.Append(splitMessage[i]);
+            //        else
+            //            builder.Append(splitMessage[i]).Append("+");
+            //    }
+
+            //    string[] info = Utils.SteamMarketListingInfo(builder.ToString());
+
+            //    await message.Channel.SendMessageAsync(info[1] + " " + info[0] + "'s starting at " + info[2] + "\n" + info[3]);
+            //}
+
+            // Ping IP addresses with the given ports and see if it is accepting connections.
+            else if (isCommand == true && command == "!ping")
             {
-                if (File.Exists("data.ini"))
+                // TODO:
+                // Check if game server user wants to ping exists before pinging server(s). 
+
+                var settingsFile = new IniFile("settings.ini");
+                string s = settingsFile.Read("Servers", "Settings");
+
+                // Load custom server information if there is any. 
+                var servers = Utils.ParseServers(s);
+
+                // User probably entered an IP address with a port
+                if (splitMessage[1].Contains(":"))
                 {
-                    var data = new IniFile("data.ini");
-                    lastSuccessfulPing = data.Read("Starbound", "data");
+                    if (servers.Count > 0)
+                    {
+                        foreach (var server in servers)
+                        {
+                            if (splitMessage[1].Contains(server.IP))
+                            {
+                                //Utils.PingServer(server);
+                            }
+                        }
+                    }
+                    else
+                    {
 
-                    if (lastSuccessfulPing == "")
-                        lastSuccessfulPing = "never";
+                    }
                 }
-
-                TcpClient StarboundServer = new TcpClient();
-
-                if (!StarboundServer.ConnectAsync(ServerIP, 21025).Wait(3500))
-                {
-                    await message.Channel.SendMessageAsync("Starbound Server \n\n```css\n:OFFLINE``` \nLast successful ping: **" + lastSuccessfulPing +
-                        "**\n\nCould just be ping issue? Try again in a few seconds.\nIf connection continues to fail, try again later.");
-                }
+                // else look up the name in the list and use that IP.
                 else
                 {
-                    await message.Channel.SendMessageAsync("Starbound Server \n\n```css\n.:ONLINE  -  " + ServerIP + ":21025```");
-
-                    var data = new IniFile("data.ini");
-                    lastSuccessfulPing = DateTime.Now.ToString();
-                    data.Write("Starbound", lastSuccessfulPing, "data");
+                    
                 }
+                
             }
 
             // Strip user roles and send them to jail. (mod only)
-            if (!message.Author.IsBot && message.Content.Split(' ')[0] == "!jail")
+            else if (isCommand == true && command == "!jail")
             {
                 string[] s = message.Content.Split(' ');
                 double time = 600; // 600s = 10 minutes default.
@@ -823,7 +933,7 @@ namespace Cerberus_GUI2
 
                     await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                     {
-                        ConsoleBox.Items.Add(setupItemContext(tojail + " has been jailed by " + message.Author + " for " + time + " " + length + "!", Brushes.Orange, 1));
+                        ConsoleBox.Items.Add(setupItemContext(tojail + " has been jailed by " + message.Author + " for " + time + " " + length + "!", Brushes.Orange, new int[] { 1 }));
                     }));
 
                     await jailTextChannel.SendMessageAsync("Welcome to jail " + tojail.Mention + "!\n\nYour sentence is: " + time + " " + length + ".");
@@ -831,13 +941,13 @@ namespace Cerberus_GUI2
             }
 
             // Make sure only one vote can be in progress at a time.
-            if (message.Content.Contains("!kick") && !message.Author.IsBot && voteKickInProgress == true)
+            else if (isCommand == true && command == "!kick" && voteKickInProgress == true)
             {
                 await message.Channel.SendMessageAsync("Another vote is in progress! Please try again after voting has finished.");
             }
 
             // Vote to kick.
-            if (message.Content.Contains("!kick") && !message.Author.IsBot && voteKickInProgress == false)
+            else if (isCommand == true && command == "!kick" && voteKickInProgress == false)
             {
                 IEnumerable<SocketUser> mentionedUser = message.MentionedUsers;
                 tokick = threefourteen.GetUser(mentionedUser.First().Id);
@@ -856,7 +966,7 @@ namespace Cerberus_GUI2
 
                     await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                      {
-                         ConsoleBox.Items.Add(setupItemContext(message.Author.Username + " initiated vote to kick " + tokick.Username + ".", defaultBrush, 1));
+                         ConsoleBox.Items.Add(setupItemContext(message.Author.Username + " initiated vote to kick " + tokick.Username + ".", defaultBrush, new int[] { 1 }));
                      }));
 
                     voteKickInProgress = true;
@@ -886,7 +996,7 @@ namespace Cerberus_GUI2
             }
 
             // User voted yes to kick during timer.
-            if (!message.Author.IsBot && message.Content == "!yes" && kickTimerRunning == true && !votedUsers.Contains(message.Author.Username))
+            else if (isCommand == true && command == "!yes" && kickTimerRunning == true && !votedUsers.Contains(message.Author.Username))
             {
                 democracy -= 1;
 
@@ -908,7 +1018,7 @@ namespace Cerberus_GUI2
 
                         await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                          {
-                             ConsoleBox.Items.Add(setupItemContext("Kicking " + tokick.Username + "...", Brushes.Red, 1));
+                             ConsoleBox.Items.Add(setupItemContext("Kicking " + tokick.Username + "...", Brushes.Red, new int[] { 1 }));
                          }));
                         
                         await message.Channel.SendMessageAsync("Vote passed! Kicking " + tokick.Username + "...  **democracy!**");
@@ -924,49 +1034,83 @@ namespace Cerberus_GUI2
             }
 
             // Get PUBG rank in specified game mode.
-            if (!message.Author.IsBot && message.Content.Split(' ')[0].ToLower() == "!pubg")
+            else if (isCommand == true && command == "!pubg")
             {
                 string[] phrase = message.Content.Split(' ');
+
+                if (phrase.Length < 3)
+                {
+                    await message.Channel.SendMessageAsync("Not enough arguments.");
+                }
+
                 string playerName = phrase[1];
-                string gameModeInput = phrase[2].ToLower();
+                string gameModeInput1 = phrase[2].ToLower();
+                string gameModeInput2 = null;
+
+                if (phrase.Length > 3)
+                {
+                     gameModeInput2 = phrase[3].ToLower();
+                }
 
                 int gameMode = -1;
 
-                if (gameModeInput == "solo" || gameModeInput == "solos")
+                if (gameModeInput1.Contains("solo") || (gameModeInput2 != null && gameModeInput2.Contains("solo")))
                 {
-                    gameMode = 0;
-                    gameModeInput = "solos";
+                    if (gameModeInput1.Contains("fpp") || (gameModeInput2 != null && gameModeInput2.Contains("fpp")))
+                    {
+                        gameMode = 3;
+                        gameModeInput1 = "solo fpp";
+                    }
+                    else
+                    {
+                        gameMode = 0;
+                        gameModeInput1 = "solo";
+                    }
+                    
                 }
-                else if (gameModeInput == "duo" || gameModeInput == "duos")
+                else if (gameModeInput1.Contains("duo") || (gameModeInput2 != null && gameModeInput2.Contains("duo")))
                 {
-                    gameMode = 1;
-                    gameModeInput = "duos";
+                    if (gameModeInput1.Contains("fpp") || (gameModeInput2 != null && gameModeInput2.Contains("fpp")))
+                    {
+                        gameMode = 4;
+                        gameModeInput1 = "duo fpp";
+                    }
+                    else
+                    {
+                        gameMode = 1;
+                        gameModeInput1 = "duo";
+                    }
+                    
                 }
-                else if (gameModeInput == "squad" || gameModeInput == "squads")
+                else if (gameModeInput1 == "squad" || (gameModeInput2 != null && gameModeInput2.Contains("squad")))
                 {
-                    gameMode = 2;
-                    gameModeInput = "squads";
-                }
-                else
-                {
-                    await message.Channel.SendMessageAsync("Invalid game mode!");
-                    return;
+                    if (gameModeInput1.Contains("fpp") || (gameModeInput2 != null && gameModeInput2.Contains("fpp")))
+                    {
+                        gameMode = 5;
+                        gameModeInput1 = "squad fpp";
+                    }
+                    else
+                    {
+                        gameMode = 2;
+                        gameModeInput1 = "squad";
+                    }
                 }
 
                 if (gameMode == -1)
                 {
-                    await message.Channel.SendMessageAsync("Invalid game mode!");
+                    await message.Channel.SendMessageAsync("Invalid game mode.");
+                    return;
                 }
 
                 int rank = await PUBGTracker.getRankAsync(playerName, gameMode);
 
                 if (rank == -1)
                 {
-                    await message.Channel.SendMessageAsync("Player not found!");
+                    await message.Channel.SendMessageAsync("Player not found.");
                 }
                 else if (rank == -2)
                 {
-                    await message.Channel.SendMessageAsync("Player has no stats!");
+                    await message.Channel.SendMessageAsync("Player has no stats.");
                 }
                 else if (rank == -3)
                 {
@@ -974,12 +1118,12 @@ namespace Cerberus_GUI2
                 }
                 else
                 {
-                    await message.Channel.SendMessageAsync(playerName + "'s PUBG *" + gameModeInput + "* rank: **#" + rank.ToString() + "**");
+                    await message.Channel.SendMessageAsync(playerName + "'s PUBG *" + gameModeInput1 + "* rank: **#" + rank.ToString() + "**");
                 }
             }
 
             // Random image from search phrase
-            if (!message.Author.IsBot && message.Content.Split(' ')[0] == "!find")
+            else if (isCommand == true && command == "!find")
             {
                 string[] phrase = message.Content.Split(' ');
                 bool plural = false;
@@ -1013,17 +1157,17 @@ namespace Cerberus_GUI2
 
                 string html = null;
 
-                // Ignore safe search for nsfw channel.
-                if (message.Channel.Name == "nsfw" || message.Channel.Name == "dev")
+                // Override safe search for nsfw channel.
+                if (message.Channel.IsNsfw == true)
                 {
-                    html = Utils.GetHtmlCode(query.ToString(), false);
+                    html = Utils.GetSearchHtmlCode(query.ToString(), false);
                 }
                 else
                 {
-                    html = Utils.GetHtmlCode(query.ToString(), safeSearch);
+                    html = Utils.GetSearchHtmlCode(query.ToString(), safeSearch);
                 }
 
-                List<string> urls = Utils.GetUrls(html);
+                List<string> urls = Utils.GetSearchResultUrls(html);
                 var rnd = new Random();
 
                 if (urls.Count == 0)
@@ -1062,7 +1206,7 @@ namespace Cerberus_GUI2
 
                  await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                  {
-                     ConsoleBox.Items.Add(setupItemContext(message.Author.Username + " queried '" + query + "' in #" + message.Channel.Name + "\n" + luckyUrl, Brushes.Khaki, 1));
+                     ConsoleBox.Items.Add(setupItemContext(message.Author.Username + " queried '" + query + "' in #" + message.Channel.Name + "\n" + luckyUrl, Brushes.Khaki, new int[] { 1 }));
                  }));
                     
                 using (var httpclient = new System.Net.Http.HttpClient())
@@ -1089,47 +1233,53 @@ namespace Cerberus_GUI2
                         {
                             await message.Channel.SendMessageAsync(m.Message);
                         }
-                    }
-                        
+                    }    
+                }
+            }
+
+            // Add message to messageSpamQueue.
+            if (antiSpam && !message.Author.IsBot)
+            {
+                string[] text = message.Content.Split(' ');
+
+                // If user is using the find or help command, ignore it. (Might be dangerous)
+                if (text[0] == "!find" || text[0] == "!help")
+                {
+                    return;
                 }
 
-                // Add message to messageSpamQueue.
-                if (antiSpam && !message.Author.IsBot)
+                // If the queue is not full, add message.
+                if (messageSpamQueue.Count < 3)
                 {
-                    string[] text = message.Content.Split(' ');
-
-                    // If user is using the find or help command, ignore it. (Might be dangerous)
-                    if (text[0] == "!find" || text[0] == "!help")
-                    {
-                        return;
-                    }
-
-                    // If the queue is not full, add message.
-                    if (messageSpamQueue.Count < 3)
-                    {
-                        messageSpamQueue.AddFirst(message.Content);
-                    }
-                    // If queue is full, dequeue last item and add new message to the beginning.
-                    else
-                    {
-                        messageSpamQueue.RemoveLast();
-                        messageSpamQueue.AddFirst(message.Content);
-                    }
+                    messageSpamQueue.AddFirst(message.Content);
+                }
+                // If queue is full, dequeue last item and add new message to the beginning.
+                else
+                {
+                    messageSpamQueue.RemoveLast();
+                    messageSpamQueue.AddFirst(message.Content);
                 }
             }
         }
 
-        // Set up timestamp and copy to clipboard context menu items.
-        private ListBoxItem setupItemContext(string text, Brush textColor, int flag)
+        private ListBoxItem itemContext(ListBoxItem item, DockPanel itemContentPanel, string text, Brush textColor, int[] flags)
         {
-            // Create new listbox item and assign text value.
-            ListBoxItem item = new ListBoxItem();
-            item.Content = text;
+            TextBlock itemText = new TextBlock();
+
+            itemText.TextWrapping = TextWrapping.Wrap;
+            itemText.Foreground = textColor;
+            itemText.Text = text;
+
+            itemContentPanel.Children.Add(itemText);
+
+            item.Content = itemContentPanel;
+            item.MaxWidth = ConsoleBox.Width;
 
             // Create new context menu and menu items.
             ContextMenu itemContext = new ContextMenu();
             MenuItem timeStamp = new MenuItem();
             MenuItem copy = new MenuItem();
+            MenuItem delete = new MenuItem();
 
             timeStamp.Header = DateTime.Now;
             timeStamp.IsEnabled = false;
@@ -1137,58 +1287,133 @@ namespace Cerberus_GUI2
             copy.Header = "Copy";
             copy.Click += Copy_Click;
 
+            delete.Header = "Delete";
+            delete.Click += Delete_Click;
+
             itemContext.Items.Add(timeStamp);
 
-            if (flag == 1)
-                itemContext.Items.Add(copy);
+            foreach (int flag in flags)
+            {
+                switch (flag)
+                {
+                    case 1:
+                        itemContext.Items.Add(copy);
+                        break;
+
+                    case 2:
+                        itemContext.Items.Add(delete);
+                        break;
+
+                    default:
+                        break;
+                }
+            }
 
             // Add context menu to item.
             item.ContextMenu = itemContext;
-            item.Foreground = textColor;
 
             return item;
         }
 
-        private ListBoxItem setupUserItem(SocketGuildUser user, Brush textColor, int flag)
+        private ListBoxItem setupItemContext(SocketMessage message, Brush textColor, int[] flags)
+        {
+            ListBoxItem item = new ListBoxItem();
+            DockPanel itemContentPanel = new DockPanel();
+            TextBlock itemOrigin = new TextBlock();
+
+            item.Tag = message;
+
+            itemOrigin.Foreground = textColor;
+
+            SocketGuildChannel c = message.Channel as SocketGuildChannel;
+            SocketDMChannel dm = message.Channel as SocketDMChannel;
+
+            if (c == null && dm != null)
+            {
+                itemOrigin.Text = "[DM] " + message.Author + ": ";
+            }
+            else if (c == null && dm == null)
+            {
+                // error
+            }
+            else
+            {
+                itemOrigin.Text = "[" + c.Guild.Name + " | " + c.Name + "] " + message.Author.Username + ": ";
+            }
+
+            itemContentPanel.Children.Add(itemOrigin);
+
+            return itemContext(item, itemContentPanel, message.ToString(), defaultBrush, flags);
+        }
+
+        private ListBoxItem setupItemContext(string origin, string text, Brush textColor, int[] flags)
+        {
+            ListBoxItem item = new ListBoxItem();
+            DockPanel itemContentPanel = new DockPanel();
+            TextBlock itemOrigin = new TextBlock();
+
+            itemOrigin.Foreground = textColor;
+            itemOrigin.Text = origin;
+
+            itemContentPanel.Children.Add(itemOrigin);
+
+            return itemContext(item, itemContentPanel, text, defaultBrush, flags);
+        }
+
+        private ListBoxItem setupItemContext(string text, Brush textColor, int[] flags)
+        {
+            // Create new listbox item and assign text value.
+            ListBoxItem item = new ListBoxItem();
+            DockPanel itemContentPanel = new DockPanel();
+
+            return itemContext(item, itemContentPanel, text, textColor, flags);
+        }
+
+        private ListBoxItem setupUserItem(SocketGuildUser user, Brush textColor, int[] flags)
         {
             // Create new listbox item and assign text value.
             ListBoxItem item = new ListBoxItem();
             item.Content = user;
-            item.Tag = user.Id;
-            
-            if (flag > 0)
+            item.Tag = user;
+
+            // Create new context menu and menu items.
+            ContextMenu userContext = new ContextMenu();
+
+            foreach (int flag in flags)
             {
-                // Create new context menu and menu items.
-                ContextMenu userContext = new ContextMenu();
-
-                if (flag == 1)
+                switch (flag)
                 {
-                    MenuItem copy = new MenuItem();
+                    case 1:
+                        MenuItem copy = new MenuItem();
 
-                    copy.Header = "Copy";
-                    copy.Click += Copy_Click;
+                        copy.Header = "Copy";
+                        copy.Click += Copy_Click;
 
-                    userContext.Items.Add(copy);
-                }
-                else if (flag == 2)
-                {
-                    MenuItem status = new MenuItem();
-                    MenuItem playing = new MenuItem();
+                        userContext.Items.Add(copy);
+                        break;
 
-                    status.Header = user.Status.ToString();
-                    status.IsEnabled = false;
+                    case 2:
+                        MenuItem status = new MenuItem();
+                        MenuItem playing = new MenuItem();
 
-                    playing.Header = user.Game.ToString();
-                    playing.IsEnabled = false;
+                        status.Header = user.Status.ToString();
+                        status.IsEnabled = false;
 
-                    userContext.Items.Add(status);
+                        playing.Header = user.Game.ToString();
+                        playing.IsEnabled = false;
 
-                    if (user.Game.HasValue == true)
-                    {
-                        userContext.Items.Add(playing);
-                    }
+                        userContext.Items.Add(status);
 
-                    item.ContextMenu = userContext;
+                        if (user.Game.HasValue == true)
+                        {
+                            userContext.Items.Add(playing);
+                        }
+
+                        item.ContextMenu = userContext;
+                        break;
+
+                    default:
+                        break;
                 }
             }
            
@@ -1199,8 +1424,12 @@ namespace Cerberus_GUI2
 
         private void Copy_Click(object sender, RoutedEventArgs e)
         {
-            // Get the timestamp from the selected item.
+            // Get the timestamp and text from the selected item.
             ListBoxItem item = (ListBoxItem)ConsoleBox.ItemContainerGenerator.ContainerFromItem(ConsoleBox.SelectedItem);
+
+            var dp = item.Content as DockPanel;
+            TextBlock otb = dp.Children[0] as TextBlock;
+            TextBlock ctb = dp.Children[1] as TextBlock;
 
             string timeStamp = item.ContextMenu.Items[0].ToString();
             int start = timeStamp.IndexOf(":") + 1;
@@ -1209,7 +1438,16 @@ namespace Cerberus_GUI2
             timeStamp = timeStamp.Substring(start, length);
 
             // Copy contents of the selected listbox item to the clipboard.
-            Clipboard.SetText(timeStamp + " " + item.Content.ToString());
+            Clipboard.SetText(timeStamp + " " + otb.Text + ctb.Text);
+        }
+
+        private async void Delete_Click(object sender, RoutedEventArgs e)
+        {
+            // Delete message associated with selected console item.
+            ListBoxItem item = (ListBoxItem)ConsoleBox.ItemContainerGenerator.ContainerFromItem(ConsoleBox.SelectedItem);
+            SocketMessage m = item.Tag as SocketMessage;
+            await m.DeleteAsync();
+            ConsoleBox.Items.Remove(item);
         }
 
         // Vote to kick timer ended
@@ -1222,7 +1460,7 @@ namespace Cerberus_GUI2
             {
                 Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                 {
-                    ConsoleBox.Items.Add(setupItemContext("Vote to kick " + tokick.Username + " failed.", Brushes.Yellow, 1));
+                    ConsoleBox.Items.Add(setupItemContext("Vote to kick " + tokick.Username + " failed.", Brushes.Yellow, new int[] { 1 }));
                 }));
 
                 lastchannel.SendMessageAsync("Kick failed. Not enough users voted.");
@@ -1234,12 +1472,12 @@ namespace Cerberus_GUI2
         }
 
         // Ping servers after timer has elapsed
-        private void autoPingTimer_Elapsed(object sender, ElapsedEventArgs e)
+        public static void autoPingTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
-            Utils.ServerStatus(ServerIP, minecraftChannel);
+            //Utils.ServerStatus(ServerIP, minecraftChannel);
         }
 
-        private void spamTimer_Elapsed(object sender, ElapsedEventArgs e)
+        public static void spamTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
             // Dequeue user from userSpamQueue and message from messageSpamQueue
             if (userSpamQueue.Count > 0)
@@ -1247,6 +1485,15 @@ namespace Cerberus_GUI2
 
             if (messageSpamQueue.Count > 0)
                 messageSpamQueue.RemoveLast();
+        }
+
+        private async void GamescomTimer_ElapsedAsync(object sender, ElapsedEventArgs e)
+        {
+            // Generate random time between 25-35 minutes to be a little more unpredictable.
+            Random random = new Random();
+            int randInt = random.Next(1500000, 2100000);
+            gamescomTimer.Interval = randInt;
+            await SteamMarketScrape.GetGamescomInfoAsync(threefourteen.DefaultChannel, false);
         }
 
         private void SubmitButton_Click(object sender, RoutedEventArgs e)
@@ -1259,87 +1506,22 @@ namespace Cerberus_GUI2
 
         private void SendAsBot()
         {
-            string s = InputTextBox.Text.Substring(InputTextBox.Text.IndexOf(':') + 1);
-
             // Send text from text box to Discord as a message from Cerberus.
             if (selectedUser != null)
             {
-                selectedUser.SendMessageAsync(s);
+                selectedUser.SendMessageAsync(InputTextBox.Text);
             }
             else if (selectedChannel != null)
             {
-                (selectedChannel as SocketTextChannel)?.SendMessageAsync(s);
+                (selectedChannel as SocketTextChannel)?.SendMessageAsync(InputTextBox.Text);
             }
             else
             {
                 return;
             }
 
-            // Regurgitate output to GUI console.
-            ConsoleBox.Items.Add(setupItemContext("Cerberus [" + MessageRecieverTextBox.Text + "]: " + InputTextBox.Text, (Brush)new BrushConverter().ConvertFromString("#FF9A63D3"), 1));
-
             // Reset input text box.
             InputTextBox.Clear();
-        }
-
-        private void ChatLogCheckBox_Checked(object sender, RoutedEventArgs e)
-        {
-            logChat = true;
-        }
-
-        private void ChatLogCheckBox_Unchecked(object sender, RoutedEventArgs e)
-        {
-            logChat = false;
-        }
-
-        private void LogUsersCheckBox_Checked(object sender, RoutedEventArgs e)
-        {
-            logUsers = true;
-        }
-
-        private void LogUsersCheckBox_Unchecked(object sender, RoutedEventArgs e)
-        {
-            logUsers = false;
-        }
-
-        private void PingServersCheckBox_Checked(object sender, RoutedEventArgs e)
-        {
-            serverPing = true;
-            autoPingTimer = new System.Timers.Timer(1800000); //600000ms = 10 min, 1200000 = 20 min, 1800000 = 30 min, 3600000 = 1 hr
-            autoPingTimer.Elapsed += new ElapsedEventHandler(autoPingTimer_Elapsed);
-            autoPingTimer.Start();
-
-            Utils.ServerStatus(ServerIP, minecraftChannel);
-        }
-
-        private void PingServersCheckBox_Unchecked(object sender, RoutedEventArgs e)
-        {
-            serverPing = false;
-            autoPingTimer.Stop();
-        }
-
-        private void SafeSearchCheckBox_Checked(object sender, RoutedEventArgs e)
-        {
-            safeSearch = true;
-        }
-
-        private void SafeSearchCheckBox_Unchecked(object sender, RoutedEventArgs e)
-        {
-            safeSearch = false;
-        }
-
-        private void SpamControlCheckBox_Checked(object sender, RoutedEventArgs e)
-        {
-            antiSpam = true;
-            spamTimer = new System.Timers.Timer(2000); //2000ms = 2s
-            spamTimer.Elapsed += new ElapsedEventHandler(spamTimer_Elapsed);
-            spamTimer.Start();
-        }
-
-        private void SpamControlCheckBox_Unchecked(object sender, RoutedEventArgs e)
-        {
-            antiSpam = false;
-            spamTimer.Stop();
         }
 
         private void ExitMenuItem_Click(object sender, RoutedEventArgs e)
@@ -1349,7 +1531,8 @@ namespace Cerberus_GUI2
 
         private void SettingsButton_Click(object sender, RoutedEventArgs e)
         {
-            throw new NotImplementedException();
+            var settingsWindow = new SettingsWindow();
+            settingsWindow.Show();
         }
 
         private void GitMenuItem_Click(object sender, RoutedEventArgs e)
@@ -1390,68 +1573,10 @@ namespace Cerberus_GUI2
 
                 MessageRecieverTextBox.Visibility = Visibility.Visible;
                 MessageRecieverTextBox.Clear();
-                MessageRecieverTextBox.Text = selectedGuild.DefaultChannel.ToString();
+                MessageRecieverTextBox.Text = selectedGuild.Name + " | " + selectedGuild.DefaultChannel.ToString();
 
-                IEnumerable<SocketGuildChannel> channels = selectedGuild.Channels;
-                IEnumerable<SocketGuildUser> users = selectedGuild.Users;
-
-                var channelList = channels.ToList().OrderBy(i => i.Name);
-
-                // Load the channel box with channels.
-                foreach (SocketGuildChannel channel in channelList)
-                {
-                    var ch = channel as SocketTextChannel;
-
-                    if (ch != null)
-                    {
-                        Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
-                        {
-                            ChannelsBox.Items.Add(channel);
-                        }));
-                    }
-                }
-
-                numUsers = 0;
-                var userList = users.ToList().OrderBy(i => i.Status, new UserStatusComparer()).ThenBy(i => i.Username);
-
-                // Load the user box with users.
-                foreach (SocketGuildUser user in userList)
-                {
-                    if (!user.IsBot /* && user.Status != UserStatus.Offline */)
-                    {
-                        Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
-                       {
-                           //UsersBox.Items.Add(user);
-
-                           if (user.Status == UserStatus.Offline)
-                           {
-                               UsersBox.Items.Add(setupUserItem(user, Brushes.Gray, 2));
-                           }
-                           else if (user.Status == UserStatus.Idle)
-                           {
-                               UsersBox.Items.Add(setupUserItem(user, Brushes.Orange, 2));
-                           }
-                           else if (user.Status == UserStatus.Online)
-                           {
-                               UsersBox.Items.Add(setupUserItem(user, defaultBrush, 2));
-                           }
-                           else if (user.Status == UserStatus.DoNotDisturb)
-                           {
-                               UsersBox.Items.Add(setupUserItem(user, Brushes.Red, 2));
-                           }
-                           else if (user.Status == UserStatus.AFK)
-                           {
-                               UsersBox.Items.Add(setupUserItem(user, Brushes.SteelBlue, 2));
-                           }
-                           else if (user.Status == UserStatus.Invisible)
-                           {
-                               UsersBox.Items.Add(setupUserItem(user, Brushes.MediumPurple, 2));
-                           }
-                       }));
-
-                        numUsers++;
-                    }
-                }
+                refreshChannels();
+                numUsers = refreshUsers();
             }
             else
             {
@@ -1471,7 +1596,7 @@ namespace Cerberus_GUI2
 
                 MessageRecieverTextBox.Visibility = Visibility.Visible;
                 MessageRecieverTextBox.Clear();
-                MessageRecieverTextBox.Text = selectedChannel.ToString();
+                MessageRecieverTextBox.Text = selectedGuild.Name + " | " + selectedChannel.ToString();
             }
         }
 
@@ -1483,16 +1608,16 @@ namespace Cerberus_GUI2
             {
                 ChannelsBox.SelectedIndex = -1;
                 selectedChannel = null;
-                ListBoxItem test = UsersBox.SelectedItem as ListBoxItem;
-                selectedUser = selectedGuild.GetUser(UInt64.Parse(test.Tag.ToString()));
+                ListBoxItem item = UsersBox.SelectedItem as ListBoxItem;
+                selectedUser = item.Tag as SocketGuildUser;
 
                 MessageRecieverTextBox.Visibility = Visibility.Visible;
                 MessageRecieverTextBox.Clear();
-                MessageRecieverTextBox.Text = selectedUser.ToString();
+                MessageRecieverTextBox.Text = selectedGuild.Name + " | " + selectedUser.ToString();
             }
         }
 
-        private void MenuItem_Click(object sender, RoutedEventArgs e)
+        private void ClearConsole_Click(object sender, RoutedEventArgs e)
         {
             MessageBoxResult result = MessageBox.Show("Are you sure you want to clear the console?", "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.Question);
 
@@ -1512,61 +1637,14 @@ namespace Cerberus_GUI2
 
         private void GuildsSearchBox_TextChanged(object sender, TextChangedEventArgs e)
         {
-            IEnumerable<SocketGuild> guilds = client.Guilds;
-            var guildList = guilds.ToList().OrderBy(i => i.Name);
-
-            GuildsBox.Items.Clear();
-            GuildsBox.SelectedIndex = -1;
-
-            if (GuildsSearchBox.Text.Length > 0)
-            {
-                // Fill guild box with guilds from search.
-                foreach (SocketGuild guild in guildList)
-                {
-                    if (guild.Name.ToLower().Contains(GuildsSearchBox.Text.ToLower()))
-                        GuildsBox.Items.Add(guild);
-                }
-            }
-            else
-            {
-                // Fill guild box with all guilds.
-                foreach (SocketGuild guild in guildList)
-                {
-                    GuildsBox.Items.Add(guild);
-                }
-            }
+            refreshGuilds(); 
         }
 
         private void ChannelsSearchBox_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (GuildsBox.SelectedIndex > -1)
             {
-                IEnumerable<SocketGuildChannel> channels = selectedGuild.Channels;
-                var channelList = channels.ToList().OrderBy(i => i.Name);
-
-                ChannelsBox.Items.Clear();
-                ChannelsBox.SelectedIndex = -1;
-
-                if (ChannelsSearchBox.Text.Length > 0)
-                {
-                    foreach (SocketGuildChannel channel in channelList)
-                    {
-                        var ch = channel as SocketTextChannel;
-
-                        if (ch != null && ch.Name.ToLower().Contains(ChannelsSearchBox.Text.ToLower()))
-                            ChannelsBox.Items.Add(channel);
-                    }
-                }
-                else
-                {
-                    foreach (SocketGuildChannel channel in channelList)
-                    {
-                        var ch = channel as SocketTextChannel;
-
-                        if (ch != null)
-                            ChannelsBox.Items.Add(channel);
-                    }
-                }
+                refreshChannels();
             }
         }
 
@@ -1574,43 +1652,7 @@ namespace Cerberus_GUI2
         {
             if (GuildsBox.SelectedIndex > -1)
             {
-                IEnumerable<SocketGuildUser> users = selectedGuild.Users;
-                var userList = users.ToList().OrderBy(i => i.Status, new UserStatusComparer()).ThenBy(i => i.Username);
-
-                UsersBox.Items.Clear();
-                UsersBox.SelectedIndex = -1;
-
-                // Load the user box with users from search.
-                foreach (SocketGuildUser user in userList)
-                {
-                    if (!user.IsBot && (UsersSearchBox.Text.Length > 0 && user.Username.ToLower().Contains(UsersSearchBox.Text.ToLower()) || UsersSearchBox.Text.Length == 0) /* && user.Status != UserStatus.Offline */)
-                    {
-                        if (user.Status == UserStatus.Offline)
-                        {
-                            UsersBox.Items.Add(setupUserItem(user, Brushes.Gray, 2));
-                        }
-                        else if (user.Status == UserStatus.Idle)
-                        {
-                            UsersBox.Items.Add(setupUserItem(user, Brushes.Orange, 2));
-                        }
-                        else if (user.Status == UserStatus.Online)
-                        {
-                            UsersBox.Items.Add(setupUserItem(user, defaultBrush, 2));
-                        }
-                        else if (user.Status == UserStatus.DoNotDisturb)
-                        {
-                            UsersBox.Items.Add(setupUserItem(user, Brushes.Red, 2));
-                        }
-                        else if (user.Status == UserStatus.AFK)
-                        {
-                            UsersBox.Items.Add(setupUserItem(user, Brushes.SteelBlue, 2));
-                        }
-                        else if (user.Status == UserStatus.Invisible)
-                        {
-                            UsersBox.Items.Add(setupUserItem(user, Brushes.MediumPurple, 2));
-                        }
-                    }
-                }
+                refreshUsers();
             }
         }
 
@@ -1622,7 +1664,7 @@ namespace Cerberus_GUI2
             }
             else
             {
-                ConsoleBox.Items.Add(setupItemContext("Client is currently " + client.ConnectionState.ToString().ToLower() + ".", Brushes.Khaki, 0));
+                ConsoleBox.Items.Add(setupItemContext("Client is currently " + client.ConnectionState.ToString().ToLower() + ".", Brushes.Khaki, new int[] {}));
             }
         }
 
@@ -1639,8 +1681,23 @@ namespace Cerberus_GUI2
             }
             else
             {
-                ConsoleBox.Items.Add(setupItemContext("Client is currently " + client.ConnectionState.ToString().ToLower() + ".", Brushes.Khaki, 0));
+                ConsoleBox.Items.Add(setupItemContext("Client is currently " + client.ConnectionState.ToString().ToLower() + ".", Brushes.Khaki, new int[] {}));
             }
+        }
+
+        private async void StatusOnline_Click(object sender, RoutedEventArgs e)
+        {
+            await client.SetStatusAsync(UserStatus.Online);
+        }
+
+        private async void StatusIdle_Click(object sender, RoutedEventArgs e)
+        {
+            await client.SetStatusAsync(UserStatus.Idle);
+        }
+
+        private async void StatusBusy_Click(object sender, RoutedEventArgs e)
+        {
+            await client.SetStatusAsync(UserStatus.DoNotDisturb);
         }
     }
 }
