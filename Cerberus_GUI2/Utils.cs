@@ -49,42 +49,49 @@ namespace Cerberus_GUI2
 
     public class Utils
     {
-        public static int CheckRegistry()
+        public static string AppName()
         {
-            // Parse the application exe name to create the correct key names. 
+            // Parse the application exe name.
             string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
             int exePos = exePath.LastIndexOf(".");
             int slashPos = exePath.LastIndexOf(@"\") + 1;
 
             string appName = exePath.Substring(slashPos, exePos - slashPos);
 
-            var key1 = Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION", appName + ".exe", null);
-            var key2 = Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION", appName + ".vshost.exe", null);
+            return appName;
+        }
 
+        public static int CheckRegistry()
+        {
+            string name = AppName();
+
+            var key1 = Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION", name + ".exe", null);
+            var key2 = Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION", name + ".vshost.exe", null);
+
+            // If either of the required keys are missing, create them. 
             if (key1 == null || key2 == null)
             {
-                AddIE11Registry(appName);
+                return 1;
             }
 
             return 0;
         }
 
-        public static int AddIE11Registry(string appName)
+        public static void AddIE11Registry()
         {
+            string name = AppName();
+
             // Create keys in designated path.
             RegistryKey defaultKey = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION");
             RegistryKey vshostKey = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION");
 
             // Set value to IE11 and set type to dword. 
-            defaultKey.SetValue(appName + ".exe", 0x00002af9, RegistryValueKind.DWord);
-            vshostKey.SetValue(appName + ".vshost.exe", 0x00002af9, RegistryValueKind.DWord);
-
-            return 0;
+            defaultKey.SetValue(name + ".exe", 0x00002af9, RegistryValueKind.DWord);
+            vshostKey.SetValue(name + ".vshost.exe", 0x00002af9, RegistryValueKind.DWord);
         }
 
         public static List<GameServer> ParseServers(string s)
         {
-            TcpClient tcpClient = new TcpClient();
             List<GameServer> gameServers = new List<GameServer>();
 
             string[] servers = s.Split( new[] { Environment.NewLine }, StringSplitOptions.None);
@@ -101,19 +108,6 @@ namespace Cerberus_GUI2
                     string[] info2 = info[1].Split(':');
                     gameServer.IP = info2[0];
                     gameServer.Port = Int32.Parse(info2[1]);
-
-                    if (tcpClient.ConnectAsync(gameServer.IP, gameServer.Port).Wait(3500))
-                    {
-                        // Server online.
-                        gameServer.Status = "Online";
-                        gameServer.Time = DateTime.UtcNow.ToString();
-                    }
-                    else
-                    {
-                        // Server offline.
-                        gameServer.Status = "Offline";
-                        gameServer.Time = "na";
-                    }
                 }
                 catch (Exception m)
                 {
@@ -124,6 +118,28 @@ namespace Cerberus_GUI2
             }
 
             return gameServers;
+        }
+
+        public static GameServer PingServer(GameServer server)
+        {
+            TcpClient tcpClient = new TcpClient();
+
+            try
+            {
+                tcpClient.Connect(server.IP, server.Port);
+
+                // Server online.
+                server.Status = "Online";
+                server.Time = DateTime.UtcNow.ToString();
+            }
+            catch
+            {
+                // Server offline.
+                server.Status = "Offline";
+                server.Time = "na";
+            }
+
+            return server;
         }
 
         // Probably Obsolete

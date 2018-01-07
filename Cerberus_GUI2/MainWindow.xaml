@@ -8,7 +8,6 @@
         Loaded="MainWindow_Loaded"
         Title="Cerberus" Height="950" MinHeight="600" Width="646" MinWidth="646" MaxWidth="646" Background="#FF333638" Icon="Cerberus_300x300_circular.png" WindowStartupLocation="CenterScreen">
     <Grid>
-        <TextBlock x:Name="TitleBox" HorizontalAlignment="Left" Margin="10,3,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Height="154" Width="604" FontSize="150" Text="Cerberus" FontFamily="Sitka Subheading" Foreground="#FF814B97" TextAlignment="Center" FontStyle="Italic" TextDecorations="{x:Null}"/>
         <Menu x:Name="FileMenu" DockPanel.Dock="Top" Height="20" VerticalAlignment="Top">
             <MenuItem Header="File">
                 <MenuItem Header="Add Guild" IsEnabled="False" />
@@ -31,9 +30,12 @@
                 <Separator />
             </MenuItem>
         </Menu>
+        <Image Margin="10,20,10,745" Source="cerb_text.png" Stretch="Fill" Opacity="0.4" Width="618" Height="154" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+        <Image x:Name="HeaderImage" Margin="224,0,228,733" Source="cerberus_red.png" Stretch="Fill" Width="186" Height="186" VerticalAlignment="Top" HorizontalAlignment="Left" />
+        <TextBox x:Name="ConsoleSearchBox" HorizontalAlignment="Left" Height="23" Margin="10,365,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="610" Background="#FF111111" Foreground="#FFD1D1D1" VerticalContentAlignment="Center" TextChanged="ConsoleSearchBox_TextChanged"/>
+        <Image HorizontalAlignment="Left" Height="14" Margin="600,369,0,0" VerticalAlignment="Top" Width="14" Source="search-icon-hi.png" IsHitTestVisible="False"/>
         <Button x:Name="SubmitButton" Content="Send" HorizontalAlignment="Left" Margin="545,0,0,10" VerticalAlignment="Bottom" Width="75" Click="SubmitButton_Click"/>
-        <ListBox x:Name="ConsoleBox" ItemsSource="{Binding}" HorizontalAlignment="Left" Margin="10,365,0,37" Width="610" Foreground="#FFD1D1D1" Background="#FF111111" ScrollViewer.HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch"/>
-        <TextBlock x:Name="VersionBox" TextAlignment="Right" HorizontalAlignment="Right" Margin="0,141,72,0" TextWrapping="Wrap" Text="{Binding}" VerticalAlignment="Top" Foreground="#FF9B59B6" Width="182"/>
+        <ListBox x:Name="ConsoleBox" ItemsSource="{Binding}" HorizontalAlignment="Left" Margin="10,393,0,37" Width="610" Foreground="#FFD1D1D1" Background="#FF111111" ScrollViewer.HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch"/>
         <TextBlock HorizontalAlignment="Left" Margin="10,163,0,0" TextWrapping="Wrap" Text="Guilds" VerticalAlignment="Top" Foreground="White" Width="200" TextAlignment="Center"/>
         <TextBlock HorizontalAlignment="Left" Margin="215,163,0,0" TextWrapping="Wrap" Text="Text Channels" VerticalAlignment="Top" Foreground="White" Width="200" TextAlignment="Center"/>
         <TextBlock HorizontalAlignment="Left" Margin="418,163,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Foreground="White" Width="200" Height="16" TextAlignment="Center" Text="Users"/>

@@ -13,10 +13,12 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
 // TODO:
 // Finish server pinging. Probably should find a better way to streamline this process.
+//  - Custom intervals
 // Find a way to have a dynamic amount of timers in different situations.
 // Implement 'Add Guild'.
 // Jail timer and saving info.
@@ -96,7 +98,6 @@ namespace Cerberus_GUI2
             MenuItem ver = new MenuItem();
             MenuItem newExistMenuItem = (MenuItem)this.FileMenu.Items[2];
             ver.Header = "v" + AssemblyVer;
-            VersionBox.Text = "v" + AssemblyVer;
             ver.IsEnabled = false;
             newExistMenuItem.Items.Add(ver);
 
@@ -141,7 +142,7 @@ namespace Cerberus_GUI2
                 file.Close();
             }
 
-            ConsoleBox.Items.Add("Loading settings");
+            ConsoleBox.Items.Add("Loading settings...");
 
             // Create settings file if it doesn't exist.
             // Load settings file otherwise. 
@@ -188,7 +189,11 @@ namespace Cerberus_GUI2
             }
 
             // Make sure IE11 registry exists for some web checking commands.
-            Utils.CheckRegistry();
+            if (Utils.CheckRegistry() == 1)
+            {
+                ConsoleBox.Items.Add("Updating registry...");
+                Utils.AddIE11Registry();
+            }
 
             // Create event handler for when the enter key is pushed while the input text box is in focus. 
             InputTextBox.KeyDown += new KeyEventHandler(tb_KeyDown);
@@ -206,7 +211,7 @@ namespace Cerberus_GUI2
         private async void LoginClient()
         {
             // Create new Discord client and initialize any remaining global variables. 
-            ConsoleBox.Items.Add("Creating Client");
+            ConsoleBox.Items.Add("Creating Client...");
 
             client = new DiscordSocketClient();
 
@@ -214,7 +219,7 @@ namespace Cerberus_GUI2
             blackList = new HashSet<string>();
 
             // Define Events
-            ConsoleBox.Items.Add("Defining Events");
+            ConsoleBox.Items.Add("Defining Events...");
 
             client.MessageReceived += MessageRecieved;
             client.UserVoiceStateUpdated += UserVoiceStateUpdated;
@@ -229,7 +234,8 @@ namespace Cerberus_GUI2
             //client.UserJoined += UserJoinedAsync;
 
             // Connect bot and start timers
-            ConsoleBox.Items.Add("Connecting...");
+            ConsoleBox.Items.Add(setupItemContext("Connecting...", Brushes.Orange, new int[] { }));
+            HeaderImage.Source = new BitmapImage(new Uri(@"/" + Utils.AppName() + ";component/cerberus_orange.png", UriKind.Relative));
 
             try
             {
@@ -247,6 +253,7 @@ namespace Cerberus_GUI2
             Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
             {
                 ConsoleBox.Items.Add(setupItemContext("Client connected!", Brushes.LimeGreen, new int[] {}));
+                HeaderImage.Source = new BitmapImage(new Uri(@"/" + Utils.AppName() + ";component/cerberus_green.png", UriKind.Relative));
             }));
 
             return Task.CompletedTask;
@@ -292,6 +299,8 @@ namespace Cerberus_GUI2
 
                     ConsoleBox.Items.Add(setupItemContext("Client disconnected.", Brushes.Red, new int[] {}));
                     ConsoleBox.Items.Add("--------------------");
+
+                    HeaderImage.Source = new BitmapImage(new Uri(@"/" + Utils.AppName() + ";component/cerberus_red.png", UriKind.Relative));
                 }));
             }
             
@@ -808,41 +817,35 @@ namespace Cerberus_GUI2
             // Ping IP addresses with the given ports and see if it is accepting connections.
             else if (isCommand == true && command == "!ping")
             {
-                // TODO:
-                // Check if game server user wants to ping exists before pinging server(s). 
-
                 var settingsFile = new IniFile("settings.ini");
                 string s = settingsFile.Read("Servers", "Settings");
 
                 // Load custom server information if there is any. 
                 var servers = Utils.ParseServers(s);
 
-                // User probably entered an IP address with a port
-                if (splitMessage[1].Contains(":"))
+                if (servers.Count > 0)
                 {
-                    if (servers.Count > 0)
+                    foreach (var server in servers)
                     {
-                        foreach (var server in servers)
+                        if (splitMessage[1].Contains(server.Name.ToLower()))
                         {
-                            if (splitMessage[1].Contains(server.IP))
-                            {
-                                //Utils.PingServer(server);
-                            }
+                            GameServer gameServer = Utils.PingServer(server);
+
+                            await message.Channel.SendMessageAsync(gameServer.Name + " (" + gameServer.IP + ":" + gameServer.Port + ") is **" + gameServer.Status + "**");
+
+                            return;
                         }
                     }
-                    else
-                    {
 
-                    }
+                    await message.Channel.SendMessageAsync(splitMessage[1] + " does not exist.");
                 }
-                // else look up the name in the list and use that IP.
                 else
                 {
-                    
+                    await message.Channel.SendMessageAsync("Server list is empty.");
+                    return;
                 }
-                
             }
-
+            
             // Strip user roles and send them to jail. (mod only)
             else if (isCommand == true && command == "!jail")
             {
@@ -1698,6 +1701,11 @@ namespace Cerberus_GUI2
         private async void StatusBusy_Click(object sender, RoutedEventArgs e)
         {
             await client.SetStatusAsync(UserStatus.DoNotDisturb);
+        }
+
+        private void ConsoleSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+
         }
     }
 }
